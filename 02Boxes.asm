@@ -11,6 +11,12 @@ Lesgo:      mov ah, 09h
             mov ah, 4ch
             int 21h
 
+;=============================================================================
+; Draws one char to video memory in (x = 40, y = 5)
+; Entry: none
+; Exit:  none
+; Destr: bx, es                                                            !!!
+;=============================================================================
 
 PutSymbol   proc
 
