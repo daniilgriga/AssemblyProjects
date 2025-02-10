@@ -6,6 +6,8 @@ Lesgo:      mov bx, 0b800h
             mov es, bx
             mov di, 5*80*2 + 20*2
 
+            call SizeAnalysis
+
             call BoxBuild
 
             call BoxText
@@ -13,12 +15,37 @@ Lesgo:      mov bx, 0b800h
             mov ah, 4ch                 ; exit
             int 21h
 
-BoxSizeX = 20
-BoxSizeY = 10
+BoxSizeX db  20
+BoxSizeY equ 10
 
 ;=============================================================================
 ; Draws box
-; Entry: bx = Box location
+; Entry:
+; Exit:
+; Destr:                                                                   !!!
+;=============================================================================
+SizeAnalysis    proc
+
+            mov si, offset Text
+            call StrLen                         ; cl = length of Text
+
+            mov al, [BoxSizeX]
+            cmp cl, al                          ; compare
+
+            jbe lol                             ; BoxSizeX => length of Text ? nothing : change
+
+                mov [BoxSizeX], cl
+                add [BoxSizeX], 4; update size
+
+            lol:
+
+            ret
+            endp
+
+
+;=============================================================================
+; Draws box
+; Entry:    di = location rn
 
 ; Exit:  none
 ; Destr: DI, SI, BX, CX                                                    !!!
@@ -29,18 +56,32 @@ BoxBuild    proc
             call BoxLine
 
             add si, 3                           ; go to next trio of symbols
-            mov cx, BoxSizeY - 2
+            mov cl, BoxSizeY - 2
+
             next:
                     mov dx, cx                  ; save cx for last loop
 
-                    add di, 80*2 - BoxSizeX*2 - 2
-                    call BoxLine
+                    mov al, [BoxSizeX]
+                    mov ah, 2
+                    mul ah
+                    add di, 80*2
+                    sub di, ax
+                    sub di, 2
+
+                    call BoxLine                ; draw body of Box
 
                     mov cx, dx                  ; return cx for last loop
             loop next
 
             add si, 3                           ; go to next trio of symbols
-            add di, 80*2 - BoxSizeX*2 - 2
+
+            mov al, [BoxSizeX]
+            mov ah, 2
+            mul ah
+            add di, 80*2
+            sub di, ax
+            sub di, 2
+
             call BoxLine
 
             ret
@@ -48,7 +89,8 @@ BoxBuild    proc
 
 ;=============================================================================
 ; Draws string
-; Entry:    si = framestyle offset
+; Entry:    di = location
+;           si = framestyle offset
 ;           es = segment
 ;
 ; Exit: none
@@ -59,7 +101,7 @@ BoxLine     proc
             mov al, [si]                        ; symbol ASCII in al now
             mov byte ptr es:[di], al            ; write symbol
 
-            mov cx, BoxSizeX                    ; length of Box
+            mov cl, [BoxSizeX]                  ; length of Box
             go:
                     add di, 2                   ; skip attribute bite
                     mov al, [si + 1]            ; ASCII in al now
@@ -75,11 +117,10 @@ BoxLine     proc
 
 ;=============================================================================
 ; Write Text in the Box
-; Entry:    cl = length of Text
-;           di = place in video memory
+; Entry:    di = place in video memory
 ;           es = segment
 ; Exit: none
-; Destr: SI, AX, BX,                                                                    !!!
+; Destr: SI, AX, BX, CL                                                     !!!
 ;=============================================================================
 BoxText     proc
 
@@ -94,11 +135,24 @@ BoxText     proc
 
             mov bx, ax
 
-            add bx, 80*(BoxSizeY - 2) + BoxSizeX/2  ; go to 'center' of Box
+            mov al, [BoxSizeX]                      ; - 34 instead of div 2
+            sub al, 34
+
+            ;mov ah, 2
+
+            ;cmp ah, 0
+            ;je save_div
+
+            ;div ah
+
+            ;save_div:
+
+            add bx, 80*(BoxSizeY - 2)
+            add bx, ax                              ; go to 'center' of Box
 
             sub di, bx
 
-            string:                                 ; write a Text
+            string:                                 ; write a Text (using cx for loop)
                     mov al, [si]
                     mov byte ptr es:[di], al
 
@@ -154,10 +208,10 @@ PutSymbol   proc
             ret
             endp
 
-FrameStyle1 db  201, 205, 187, 186, " ", 186, 200, 205, 188, "$"
-; FrameStyle2 db
+FrameStyle1 db  201, 205, 187, 186, " ", 186, 200, 205, 188
+FrameStyle2 db "+-+| |\_/"
 ; FrameStyle3 db
 
-Text        db "stay hard", "#"
+Text        db "David Goggins once said: stay hard", "#"
 
 end Lesgo
