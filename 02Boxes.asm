@@ -53,23 +53,27 @@ SizeAnalysis    proc
 ;=============================================================================
 BoxBuild        proc
 
-                mov si, offset FrameStyle1              ; addr FrameStyle1 in si
-                call BoxLine
+                mov si, offset FrameStyle3              ; addr FrameStyle1 in si
 
-                add si, 3                               ; go to next trio of symbols
+                mov ah, 1011100b
+                call BoxLine
 
                 mov cl, BoxSizeY - 2
                 next:
                         mov dx, cx                      ; save cx for last loop
 
                         call NextPosition
+
+                        push si
                         call BoxLine                    ; draw body of Box
+                        pop si
 
                         mov cx, dx                      ; return cx for last loop
                 loop next
 
-                add si, 3                               ; go to next trio of symbols
                 call NextPosition
+
+                add si, 3
                 call BoxLine
 
                 ret
@@ -83,45 +87,47 @@ BoxBuild        proc
 ;=============================================================================
 NextPosition    proc
 
-                mov al, [BoxSizeX]
-                shl ax, 1
+                xor bx, bx
+
+                mov bl, [BoxSizeX]
+                shl bx, 1
                 add di, 80*2
-                sub di, ax
-                sub di, 2
+                sub di, bx
+                sub di, 4
 
                 ret
                 endp
 
 ;=============================================================================
 ; Draws string
-; Entry:        di = location
-;               si = framestyle offset
+; Entry:
+;               ah = color
+;               di = location
+;               si = framestyle symbol
 ;               es = segment
 ; Exit: none
-; Destr: AL, DI, SI, CX                                                    !!!
+; Destr: AX, DI, SI, CX                                                    !!!
 ;=============================================================================
-BoxLine     proc
+BoxLine         proc
 
-            mov al, [si]                                ; symbol ASCII in al now
-            mov byte ptr es:[di], al                    ; write symbol
+                lodsb
+                stosw
 
-            mov cl, [BoxSizeX]                          ; length of Box
-            go:
-                    add di, 2                           ; skip attribute bite
-                    mov al, [si + 1]                    ; ASCII in al now
-                    mov byte ptr es:[di], al            ; write symbol
-            loop go
+                lodsb
 
-            add di, 2                                   ; skip attribute bite
-            mov al, [si + 2]                            ; ASCII in al now
-            mov byte ptr es:[di], al                    ; write symbol
+                mov cl, [BoxSizeX]
+                rep stosw
 
-            ret
-            endp
+                lodsb
+                stosw
+
+                ret
+                endp
 
 ;=============================================================================
 ; Write Text in the Box
-; Entry:        di = place in video memory
+; Entry:        ;ah = color
+;               di = place in video memory
 ;               es = segment
 ; Exit: none
 ; Destr: SI, AX, BX, CL                                                    !!!
@@ -165,7 +171,7 @@ BoxText     proc
 ; Exit:         cl = length of string
 ; Destr: AL                                                                !!!
 ;=============================================================================
-StrLen      proc
+StrLen          proc
 
                 mov bx, si
 
@@ -190,7 +196,7 @@ FrameStyle1 db  201, 205, 187, 186, " ", 186, 200, 205, 188
 FrameStyle2 db  "+-+| |\_/"
 FrameStyle3 db    3,   3,   3,   3, " ",   3,   3,   3,   3
 
-Text        db "David Goggins once said: stay hard", "#"
+Text        db "damir loxx", "#"
 
 end Lesgo
 
