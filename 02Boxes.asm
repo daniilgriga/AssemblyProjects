@@ -14,7 +14,7 @@ Lesgo:          mov bx, VIDEOSEG
 
                 call BoxText
 
-                mov ah, 4ch                                 ; exit
+                mov ah, 4ch                             ; exit
                 int 21h
 
 BoxSizeX db  20
@@ -37,7 +37,7 @@ SizeAnalysis    proc
                 jbe lol                                 ; BoxSizeX => length of Text ? nothing : change
 
                 mov [BoxSizeX], cl
-                add [BoxSizeX], 4                       ; update size
+                add [BoxSizeX], 8                       ; update size
 
                 lol:
 
@@ -51,29 +51,29 @@ SizeAnalysis    proc
 ; Exit:  none
 ; Destr: DI, SI, BX, CX                                                    !!!
 ;=============================================================================
-BoxBuild    proc
+BoxBuild        proc
 
-            mov si, offset FrameStyle2                  ; addr FrameStyle1 in si
-            call BoxLine
+                mov si, offset FrameStyle1              ; addr FrameStyle1 in si
+                call BoxLine
 
-            add si, 3                                   ; go to next trio of symbols
+                add si, 3                               ; go to next trio of symbols
 
-            mov cl, BoxSizeY - 2
-            next:
-                    mov dx, cx                          ; save cx for last loop
+                mov cl, BoxSizeY - 2
+                next:
+                        mov dx, cx                      ; save cx for last loop
 
-                    call NextPosition
-                    call BoxLine                        ; draw body of Box
+                        call NextPosition
+                        call BoxLine                    ; draw body of Box
 
-                    mov cx, dx                          ; return cx for last loop
-            loop next
+                        mov cx, dx                      ; return cx for last loop
+                loop next
 
-            add si, 3                                   ; go to next trio of symbols
-            call NextPosition
-            call BoxLine
+                add si, 3                               ; go to next trio of symbols
+                call NextPosition
+                call BoxLine
 
-            ret
-            endp
+                ret
+                endp
 
 ;=============================================================================
 ; Change DI to next position for string
@@ -97,7 +97,6 @@ NextPosition    proc
 ; Entry:        di = location
 ;               si = framestyle offset
 ;               es = segment
-;
 ; Exit: none
 ; Destr: AL, DI, SI, CX                                                    !!!
 ;=============================================================================
@@ -122,10 +121,10 @@ BoxLine     proc
 
 ;=============================================================================
 ; Write Text in the Box
-; Entry:    di = place in video memory
-;           es = segment
+; Entry:        di = place in video memory
+;               es = segment
 ; Exit: none
-; Destr: SI, AX, BX, CL                                                     !!!
+; Destr: SI, AX, BX, CL                                                    !!!
 ;=============================================================================
 BoxText     proc
 
@@ -141,6 +140,8 @@ BoxText     proc
             mov bx, ax
 
             mov al, [BoxSizeX]
+            shr al, 1
+            shl al, 1
 
             add bx, ax
             add bx, 80*(BoxSizeY - 2)
@@ -160,29 +161,30 @@ BoxText     proc
 
 ;=============================================================================
 ; Count length of string
-; Entry: si = string offset
-; Exit:  cl = length of string
+; Entry:        si = string offset
+; Exit:         cl = length of string
 ; Destr: AL                                                                !!!
 ;=============================================================================
 StrLen      proc
 
-            mov bx, si
+                mov bx, si
 
-            xor cl, cl
-            cycle:
-                    mov al, [bx]
-                    cmp al, '#'
+                xor cl, cl
+                cycle:
+                        mov al, [bx]
+                        cmp al, '#'
 
-                    je match
+                        je match
 
-                    inc cl
-                    inc bx
+                        inc cl
+                        inc bx
 
-                    jmp cycle
+                        jmp cycle
 
-            match:
-                    ret
-                    endp
+                match:
+
+                ret
+                endp
 
 FrameStyle1 db  201, 205, 187, 186, " ", 186, 200, 205, 188
 FrameStyle2 db  "+-+| |\_/"
@@ -191,3 +193,8 @@ FrameStyle3 db    3,   3,   3,   3, " ",   3,   3,   3,   3
 Text        db "David Goggins once said: stay hard", "#"
 
 end Lesgo
+
+
+// TODO:        1) use string functions
+//              2) atoi
+//              3) read from cmd
