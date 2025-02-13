@@ -3,15 +3,18 @@
 org 100h
 
 VIDEOSEG equ 0b800h
+START_Y  equ 3*80*2
+START_X  equ 20*2
 
 Lesgo:          mov bx, VIDEOSEG
                 mov es, bx
-                mov di, 5*80*2 + 20*2
+                mov di, START_Y + START_X
 
                 call SizeAnalysis
 
                 call BoxBuild
 
+                mov ah, 1011100b
                 call BoxText
 
                 mov ah, 4ch                             ; exit
@@ -37,7 +40,7 @@ SizeAnalysis    proc
                 jbe lol                                 ; BoxSizeX => length of Text ? nothing : change
 
                 mov [BoxSizeX], cl
-                add [BoxSizeX], 8                       ; update size
+                add [BoxSizeX], 10                      ; update size
 
                 lol:
 
@@ -60,7 +63,7 @@ BoxBuild        proc
 
                 mov cl, BoxSizeY - 2
                 next:
-                        mov dx, cx                      ; save cx for last loop
+                        push cx                         ; save cx for last loop
 
                         call NextPosition
 
@@ -68,7 +71,7 @@ BoxBuild        proc
                         call BoxLine                    ; draw body of Box
                         pop si
 
-                        mov cx, dx                      ; return cx for last loop
+                        pop cx                          ; return cx for last loop
                 loop next
 
                 call NextPosition
@@ -126,44 +129,52 @@ BoxLine         proc
 
 ;=============================================================================
 ; Write Text in the Box
-; Entry:        ;ah = color
+; Entry:        ah = color
 ;               di = place in video memory
 ;               es = segment
 ; Exit: none
 ; Destr: SI, AX, BX, CL                                                    !!!
 ;=============================================================================
-BoxText     proc
+BoxText         proc
 
-            mov si, offset Text
-            call StrLen                                 ; cl = strlen (Text)
+                mov si, offset Text
+                call StrLen                             ; cl = strlen (Text)
 
-            xor bx, bx
+                push cx
 
-            mov al, cl
-            shr al, 1
-            shl al, 1
+                xor bx, bx
 
-            mov bx, ax
+                shr cl, 1
+                shl cl, 1
 
-            mov al, [BoxSizeX]
-            shr al, 1
-            shl al, 1
+                call ParityLength
 
-            add bx, ax
-            add bx, 80*(BoxSizeY - 2)
+                cmp al, 1
+                jne not_odd_number
 
-            sub di, bx
+                add cl, 2
 
-            string:                                     ; write a Text (using cx for loop)
-                    mov al, [si]
-                    mov byte ptr es:[di], al
+                not_odd_number:
+                mov bx, cx
 
-                    add di, 2
-                    add si, 1
-            loop string
+                mov cl, [BoxSizeX]
+                shr cl, 1
+                shl cl, 1
 
-            ret
-            endp
+                add bx, cx
+                add bx, 80*(BoxSizeY - 2) + 2
+
+                sub di, bx
+
+                pop cx
+
+                string:
+                        lodsb
+                        stosw
+                loop string
+
+                ret
+                endp
 
 ;=============================================================================
 ; Count length of string
@@ -192,15 +203,36 @@ StrLen          proc
                 ret
                 endp
 
+;=============================================================================
+; Function to check parity Text length
+; Entry:        si = string offset
+; Exit:         al = length of string
+; Destr: AL                                                                !!!
+;=============================================================================
+ParityLength    proc
+
+                push cx
+
+                mov si, offset Text
+                call StrLen
+
+                and cl, 1
+                mov al, cl
+
+                pop cx
+
+                ret
+                endp
+
 FrameStyle1 db  201, 205, 187, 186, " ", 186, 200, 205, 188
 FrameStyle2 db  "+-+| |\_/"
 FrameStyle3 db    3,   3,   3,   3, " ",   3,   3,   3,   3
 
-Text        db "damir loxx", "#"
+Text        db "Mental toughness is a lifestyle", "#"
 
 end Lesgo
 
 
-// TODO:        1) use string functions
-//              2) atoi
+//              1) use string functions + try consider parity - DONE
+// TODO:        2) atoi
 //              3) read from cmd
