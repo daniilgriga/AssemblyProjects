@@ -22,7 +22,7 @@ Lesgo:
                 int 21h
 
 BoxSizeX db  20
-BoxSizeY equ 10
+BoxSizeY db  10
 
 ;=============================================================================
 ; Size of Box analysis
@@ -34,8 +34,10 @@ SizeAnalysis    proc
 
                 mov si, 81h
                 call AtoI
-
                 mov [BoxSizeX], al
+
+                ;call AtoI
+                ;mov [BoxSizeY], al
 
                 mov si, offset Text
                 call StrLen                             ; cl = length of Text
@@ -62,11 +64,12 @@ SizeAnalysis    proc
 ;=============================================================================
 BoxBuild        proc
 
-                mov si, offset FrameStyle1              ; FrameStyle addr in si
+                mov si, offset FrameStyle4              ; FrameStyle addr in si
 
                 call BoxLine
 
-                mov cl, BoxSizeY - 2
+                mov cl, [BoxSizeY]
+                sub cl, 2
                 next:
                         push cx                         ; save cx for last loop
 
@@ -157,7 +160,7 @@ BoxText         proc
                 cmp al, 1
                 jne even_number
 
-                add cl, 2
+                add cl, 4
 
                 even_number:
                         mov bx, cx
@@ -167,9 +170,24 @@ BoxText         proc
                         shl cl, 1
 
                         add bx, cx
-                        add bx, 80*(BoxSizeY - 2) + 2
 
                         sub di, bx
+
+                        push ax
+                        push bx
+
+                        xor ax, ax
+                        xor bx, bx
+
+                        mov al, [BoxSizeY]
+                        sub al, 2
+                        mov bx, 80
+                        mul bx
+
+                        sub di, ax
+
+                        pop bx
+                        pop ax
 
                 pop cx
 
@@ -232,15 +250,13 @@ ParityLength    proc
 ;=============================================================================
 ; Function to skip spaces
 ; Entry:        si = cmd offset
-; Exit:         bx = first not " ", "\n", "\r" symbol offset
+; Exit:         si = first not " ", "\n", "\r" symbol offset
 ; Destr: DX, SI                                                            !!!
 ;=============================================================================
 SkipSpaces      proc
 
-                mov bx, si
-
                 inf_loop:
-                        mov al, [bx]
+                        mov al, [si]
 
                         cmp al, " "                     ; space
                         je skip
@@ -257,7 +273,7 @@ SkipSpaces      proc
                         jmp ok
 
                 skip:
-                        inc bx
+                        inc si
                         jmp inf_loop
 
                 ok:
@@ -281,7 +297,8 @@ AtoI            proc
                 xor cx, cx
 
                 runner_but_not_on_the_blade:
-                        mov cl, [bx]
+                        mov cl, [si]
+                        inc si
 
                         cmp cl, "0"                     ;
                         jb false_case                   ;
@@ -289,17 +306,12 @@ AtoI            proc
                         cmp cl, "9"                     ;
                         ja false_case                   ;
 
-                        push bx
-
                         mov bx, 10
                         mul bx
 
-                        pop  bx
-
                         sub cl, "0"
-                        add ax, cx                      ; write a number
+                        add al, cl                      ; write a number
 
-                        inc bx
                         jmp runner_but_not_on_the_blade
 
                 false_case:                             ; else
@@ -307,12 +319,14 @@ AtoI            proc
                 ret
                 endp
 
+
+FrameStyle0 db "123456789"
 FrameStyle1 db  201, 205, 187, 186, " ", 186, 200, 205, 188
 FrameStyle2 db  "+-+| |\_/"
 FrameStyle3 db    3,   3,   3,   3, " ",   3,   3,   3,   3
 FrameStyle4 db  218, 196, 191, 179, " ", 179, 192, 196, 217
 
-Text        db "Mental toughness is a lifestyle", "#"
+Text        db "stay hard", "#"
 
 end Lesgo
 
