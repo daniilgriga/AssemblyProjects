@@ -2,19 +2,20 @@
 .code
 org 100h
 
-VIDEOSEG equ 0b800h
-START_Y  equ 3*80*2
-START_X  equ 20*2
+VIDEOSEG        equ 0b800h
+START_Y         equ 3*80*2
+START_X         equ 10*2
+BLINKING_PINK   equ 11011100b
 
-Lesgo:          mov bx, VIDEOSEG
+Lesgo:
+                mov bx, VIDEOSEG
                 mov es, bx
                 mov di, START_Y + START_X
 
                 call SizeAnalysis
 
+                mov ah, BLINKING_PINK
                 call BoxBuild
-
-                mov ah, 1011100b
                 call BoxText
 
                 mov ah, 4ch                             ; exit
@@ -31,18 +32,23 @@ BoxSizeY equ 10
 ;=============================================================================
 SizeAnalysis    proc
 
+                mov si, 81h
+                call AtoI
+
+                mov [BoxSizeX], al
+
                 mov si, offset Text
                 call StrLen                             ; cl = length of Text
 
                 mov al, [BoxSizeX]
                 cmp cl, al                              ; compare
 
-                jbe lol                                 ; BoxSizeX => length of Text ? nothing : change
+                jbe without_upd                         ; BoxSizeX => length of Text ? nothing : change
 
                 mov [BoxSizeX], cl
                 add [BoxSizeX], 10                      ; update size
 
-                lol:
+                without_upd:
 
                 ret
                 endp
@@ -56,9 +62,8 @@ SizeAnalysis    proc
 ;=============================================================================
 BoxBuild        proc
 
-                mov si, offset FrameStyle3              ; addr FrameStyle1 in si
+                mov si, offset FrameStyle1              ; FrameStyle addr in si
 
-                mov ah, 1011100b
                 call BoxLine
 
                 mov cl, BoxSizeY - 2
@@ -150,21 +155,21 @@ BoxText         proc
                 call ParityLength
 
                 cmp al, 1
-                jne not_odd_number
+                jne even_number
 
                 add cl, 2
 
-                not_odd_number:
-                mov bx, cx
+                even_number:
+                        mov bx, cx
 
-                mov cl, [BoxSizeX]
-                shr cl, 1
-                shl cl, 1
+                        mov cl, [BoxSizeX]
+                        shr cl, 1
+                        shl cl, 1
 
-                add bx, cx
-                add bx, 80*(BoxSizeY - 2) + 2
+                        add bx, cx
+                        add bx, 80*(BoxSizeY - 2) + 2
 
-                sub di, bx
+                        sub di, bx
 
                 pop cx
 
@@ -206,7 +211,7 @@ StrLen          proc
 ;=============================================================================
 ; Function to check parity Text length
 ; Entry:        si = string offset
-; Exit:         al = length of string
+; Exit:         al = 0 - odd number; al = 1 - even number
 ; Destr: AL                                                                !!!
 ;=============================================================================
 ParityLength    proc
@@ -224,9 +229,88 @@ ParityLength    proc
                 ret
                 endp
 
+;=============================================================================
+; Function to skip spaces
+; Entry:        si = cmd offset
+; Exit:         bx = first not " ", "\n", "\r" symbol offset
+; Destr: DX, SI                                                            !!!
+;=============================================================================
+SkipSpaces      proc
+
+                mov bx, si
+
+                inf_loop:
+                        mov al, [bx]
+
+                        cmp al, " "                     ; space
+                        je skip
+
+                        cmp al, 0Ah                     ; \n
+                        je skip
+
+                        cmp al, 0Dh                     ; \r
+                        je skip
+
+                        cmp al, 0                       ; end of string
+                        je  ok
+
+                        jmp ok
+
+                skip:
+                        inc bx
+                        jmp inf_loop
+
+                ok:
+                        ret
+
+
+                ret
+                endp
+
+;=============================================================================
+; Function atoi from С++
+; Entry:        si = cmd offset
+; Exit:         ax = result number
+; Destr: AX, BX, CL                                                        !!!
+;=============================================================================
+AtoI            proc
+
+                call SkipSpaces
+
+                xor ax, ax
+                xor cx, cx
+
+                runner_but_not_on_the_blade:
+                        mov cl, [bx]
+
+                        cmp cl, "0"                     ;
+                        jb false_case                   ;
+                                                        ; if - else in asm :)
+                        cmp cl, "9"                     ;
+                        ja false_case                   ;
+
+                        push bx
+
+                        mov bx, 10
+                        mul bx
+
+                        pop  bx
+
+                        sub cl, "0"
+                        add ax, cx                      ; write a number
+
+                        inc bx
+                        jmp runner_but_not_on_the_blade
+
+                false_case:                             ; else
+
+                ret
+                endp
+
 FrameStyle1 db  201, 205, 187, 186, " ", 186, 200, 205, 188
 FrameStyle2 db  "+-+| |\_/"
 FrameStyle3 db    3,   3,   3,   3, " ",   3,   3,   3,   3
+FrameStyle4 db  218, 196, 191, 179, " ", 179, 192, 196, 217
 
 Text        db "Mental toughness is a lifestyle", "#"
 
@@ -234,5 +318,5 @@ end Lesgo
 
 
 //              1) use string functions + try consider parity - DONE
-// TODO:        2) atoi
-//              3) read from cmd
+//              2) atoi - DONE
+// TODO:        3) read from cmd - done, but only one argument
