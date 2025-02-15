@@ -34,10 +34,16 @@ SizeAnalysis    proc
 
                 mov si, 81h
                 call AtoI
+                cmp al, 0
+
+                je lol
                 mov [BoxSizeX], al
 
-                ;call AtoI
-                ;mov [BoxSizeY], al
+                call AtoI
+                cmp al, 0
+
+                je lol
+                mov [BoxSizeY], al
 
                 mov si, offset Text
                 call StrLen                             ; cl = length of Text
@@ -51,6 +57,7 @@ SizeAnalysis    proc
                 add [BoxSizeX], 10                      ; update size
 
                 without_upd:
+                lol:
 
                 ret
                 endp
@@ -172,7 +179,7 @@ BoxText         proc
                         add bx, cx
 
                         sub di, bx
-
+;======================================
                         push ax
                         push bx
 
@@ -180,6 +187,9 @@ BoxText         proc
                         xor bx, bx
 
                         mov al, [BoxSizeY]
+                        shr al, 1
+                        shl al, 1
+
                         sub al, 2
                         mov bx, 80
                         mul bx
