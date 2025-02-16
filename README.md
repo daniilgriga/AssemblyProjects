@@ -14,6 +14,6 @@ The program draws a frame and text in it in video memory.
 The command line takes 5 arguments: 
 1. frame size in X coordinate
 2. frame size in Y coordinate
-3. color 
-4*. style number
+3. color
+4. style number*
 5. line that should be in the frame
