@@ -12,17 +12,70 @@ Lesgo:
                 mov es, bx
                 mov di, START_Y + START_X
 
+                call ReadCMD
+                push si
+
                 call SizeAnalysis
 
-                mov ah, BLINKING_PINK
+                pop si
                 call BoxBuild
                 call BoxText
 
                 mov ah, 4ch                             ; exit
                 int 21h
 
+
 BoxSizeX db  20
 BoxSizeY db  10
+
+;=============================================================================
+; Function to read cmd arguments
+; Entry:
+; Exit:
+; Destr:                                                             !!!
+;=============================================================================
+ReadCMD         proc
+
+                mov si, 81h
+;===================
+                call AtoIDEC
+
+                cmp al, 0
+                je lol
+
+                mov [BoxSizeX], al
+;===================
+                call AtoIDEC
+
+                cmp al, 0
+                je lol
+
+                mov [BoxSizeY], al
+;===================
+                call AtoIHEX
+
+                cmp al, 0
+                je lol
+
+                mov ah, al
+                push ax
+;===================
+                call AtoIDEC
+
+                mov si, offset FrameStyle1
+
+                sub al, 1
+                mov bx, 9
+                mul bx
+
+                add si, ax
+
+                pop ax
+                lol:
+
+                ret
+                endp
+
 
 ;=============================================================================
 ; Size of Box analysis
@@ -31,19 +84,6 @@ BoxSizeY db  10
 ; Destr: AL, CL                                                            !!!
 ;=============================================================================
 SizeAnalysis    proc
-
-                mov si, 81h
-                call AtoI
-                cmp al, 0
-
-                je lol
-                mov [BoxSizeX], al
-
-                call AtoI
-                cmp al, 0
-
-                je lol
-                mov [BoxSizeY], al
 
                 mov si, offset Text
                 call StrLen                             ; cl = length of Text
@@ -57,7 +97,6 @@ SizeAnalysis    proc
                 add [BoxSizeX], 10                      ; update size
 
                 without_upd:
-                lol:
 
                 ret
                 endp
@@ -70,8 +109,6 @@ SizeAnalysis    proc
 ; Destr: DI, SI, BX, CX                                                    !!!
 ;=============================================================================
 BoxBuild        proc
-
-                mov si, offset FrameStyle4              ; FrameStyle addr in si
 
                 call BoxLine
 
@@ -198,47 +235,6 @@ BoxText         proc
                                 sub di, ax
 
                                 pop ax
-                ;xor bx, bx
-
-                ;shr cl, 1
-                ;shl cl, 1
-
-                ;call ParityLength
-
-                ;cmp al, 1
-                ;jne even_number
-
-                ;add cl, 4
-
-                ;even_number:
-                ;        mov bx, cx
-
-                ;        mov cl, [BoxSizeX]
-                ;        shr cl, 1
-                ;        shl cl, 1
-
-                ;        add bx, cx
-
-                ;        sub di, bx
-;======================================
-                ;        push ax
-                ;        push bx
-
-                ;        xor ax, ax
-                ;        xor bx, bx
-
-                ;        mov al, [BoxSizeY]
-                ;        shr al, 1
-                ;        shl al, 1
-
-                ;        sub al, 2
-                ;        mov bx, 80
-                ;        mul bx
-
-                ;        sub di, ax
-
-                ;        pop bx
-                ;       pop ax
 
                 pop cx
 
@@ -337,12 +333,12 @@ SkipSpaces      proc
                 endp
 
 ;=============================================================================
-; Function atoi from С++
+; Function AtoI for decimal from С++
 ; Entry:        si = cmd offset
 ; Exit:         ax = result number
 ; Destr: AX, BX, CL                                                        !!!
 ;=============================================================================
-AtoI            proc
+AtoIDEC         proc
 
                 call SkipSpaces
 
@@ -372,12 +368,67 @@ AtoI            proc
                 ret
                 endp
 
+;=============================================================================
+; Function AtoI for hexadecimal numbers from С++
+; Entry:        si = cmd offset
+; Exit:         ax = result number
+; Destr: AX, BX, CL                                                        !!!
+;=============================================================================
+AtoIHEX         proc
 
-FrameStyle0 db "123456789"
-FrameStyle1 db  201, 205, 187, 186, " ", 186, 200, 205, 188
-FrameStyle2 db  "+-+| |\_/"
-FrameStyle3 db    3,   3,   3,   3, " ",   3,   3,   3,   3
-FrameStyle4 db  218, 196, 191, 179, " ", 179, 192, 196, 217
+                call SkipSpaces
+
+                xor ax, ax
+                xor cx, cx
+
+                runner_but_not_on_the_blade_damn:
+                        mov cl, [si]
+                        inc si
+
+                        cmp cl, "0"                     ;
+                        jb next_check                   ;
+                                                        ; if - else in asm :)
+                        cmp cl, "9"                     ;
+                        ja next_check                   ;
+
+                        jmp true_case
+
+                        next_check:
+                                cmp cl, "A"
+                                jb f_case
+
+                                cmp cl, "F"
+                                ja f_case
+
+
+                        true_case:
+                                mov bx, 16
+                                mul bx
+
+                                cmp cl, "A"
+                                jae symbol
+
+                                sub cl, "0"
+                                add al, cl
+                                jmp number
+
+                                symbol:
+                                        sub cl, "A"
+                                        add al, cl
+
+                                number:
+                                        jmp runner_but_not_on_the_blade_damn
+
+                f_case:                             ; else
+
+                ret
+                endp
+
+FrameStyle1 db "123456789"
+FrameStyle2 db  201, 205, 187, 186, " ", 186, 200, 205, 188
+FrameStyle3 db  "+-+| |\_/"
+FrameStyle4 db    3,   3,   3,   3, " ",   3,   3,   3,   3
+FrameStyle5 db  218, 196, 191, 179, " ", 179, 192, 196, 217
 
 Text        db "stay hard", "#"
 
@@ -385,6 +436,10 @@ end Lesgo
 
 
 //              1) use string functions + try consider parity - DONE
-//              2) atoi - DONE
-// TODO:        3) read from cmd - done, but only one argument
-//              4) text replacement
+//              2) AtoIDEC - DONE
+//              3) read from cmd - DONE
+//              4) text replacement - DONE
+//              5) change color from cmd - DONE
+//              6) change FrameStyle from cmd - DONE
+// TODO:        7) FrameStyle0 - user style
+c
