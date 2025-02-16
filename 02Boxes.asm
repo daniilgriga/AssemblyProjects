@@ -151,7 +151,7 @@ BoxLine         proc
 ; Destr: SI, AX, BX, CL                                                    !!!
 ;=============================================================================
 BoxText         proc
-
+                                                        ; bx = BoxSizeY * 1/2 * 80 * 2   +   BoxSizeX + StrLen(Text)
                 mov si, offset Text
                 call StrLen                             ; cl = strlen (Text)
 
@@ -159,45 +159,86 @@ BoxText         proc
 
                 xor bx, bx
 
-                shr cl, 1
-                shl cl, 1
-
                 call ParityLength
 
-                cmp al, 1
-                jne even_number
+                cmp al, 0
+                je even_number_1
 
-                add cl, 4
+                add bl, 2
 
-                even_number:
-                        mov bx, cx
+                even_number_1:
+                        add cl, [BoxSizeX]
 
-                        mov cl, [BoxSizeX]
                         shr cl, 1
                         shl cl, 1
 
-                        add bx, cx
+                        add bl, cl
 
-                        sub di, bx
+                        and cl, 1
+
+                        cmp cl, 0
+                        je even_number_2
+
+                        add bl, 2
+
+                        even_number_2:
+                                sub di, bx
+
+                                push ax
+                                xor ax, ax
+
+                                mov al, [BoxSizeY]
+
+                                shr al, 1
+                                shl al, 1
+
+                                mov bx, 80
+                                mul bx
+
+                                sub di, ax
+
+                                pop ax
+                ;xor bx, bx
+
+                ;shr cl, 1
+                ;shl cl, 1
+
+                ;call ParityLength
+
+                ;cmp al, 1
+                ;jne even_number
+
+                ;add cl, 4
+
+                ;even_number:
+                ;        mov bx, cx
+
+                ;        mov cl, [BoxSizeX]
+                ;        shr cl, 1
+                ;        shl cl, 1
+
+                ;        add bx, cx
+
+                ;        sub di, bx
 ;======================================
-                        push ax
-                        push bx
+                ;        push ax
+                ;        push bx
 
-                        xor ax, ax
-                        xor bx, bx
+                ;        xor ax, ax
+                ;        xor bx, bx
 
-                        mov al, [BoxSizeY]
-                        shr al, 1
-                        shl al, 1
+                ;        mov al, [BoxSizeY]
+                ;        shr al, 1
+                ;        shl al, 1
 
-                        sub al, 2
-                        mov bx, 80
-                        mul bx
+                ;        sub al, 2
+                ;        mov bx, 80
+                ;        mul bx
 
-                        sub di, ax
+                ;        sub di, ax
 
-                        pop bx
-                        pop ax
+                ;        pop bx
+                ;       pop ax
 
                 pop cx
 
@@ -217,6 +258,8 @@ BoxText         proc
 ;=============================================================================
 StrLen          proc
 
+                push bx
+
                 mov bx, si
 
                 xor cl, cl
@@ -232,6 +275,7 @@ StrLen          proc
                         jmp cycle
 
                 match:
+                        pop bx
 
                 ret
                 endp
@@ -246,7 +290,6 @@ ParityLength    proc
 
                 push cx
 
-                mov si, offset Text
                 call StrLen
 
                 and cl, 1
@@ -344,3 +387,4 @@ end Lesgo
 //              1) use string functions + try consider parity - DONE
 //              2) atoi - DONE
 // TODO:        3) read from cmd - done, but only one argument
+//              4) text replacement
