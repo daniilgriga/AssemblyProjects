@@ -13,12 +13,20 @@ Lesgo:
                 mov di, START_Y + START_X
 
                 call ReadCMD
-                push si
+                push dx
+                push cx
+                push dx
 
+                xor dx, dx
+                xor cx, cx
+
+                pop si
                 call SizeAnalysis
 
                 pop si
                 call BoxBuild
+
+                pop si
                 call BoxText
 
                 mov ah, 4ch                             ; exit
@@ -31,7 +39,9 @@ BoxSizeY db  10
 ;=============================================================================
 ; Function to read cmd arguments
 ; Entry:
-; Exit:
+; Exit:         ah = color
+;               dx = offset FrameStyle
+;
 ; Destr:                                                             !!!
 ;=============================================================================
 ReadCMD         proc
@@ -58,19 +68,24 @@ ReadCMD         proc
                 je lol
 
                 mov ah, al
-                push ax
 ;===================
+                push ax
                 call AtoIDEC
 
-                mov si, offset FrameStyle1
+                mov cx, offset FrameStyle1
 
                 sub al, 1
                 mov bx, 9
                 mul bx
 
-                add si, ax
+                add cx, ax
 
                 pop ax
+;===================
+                call SkipSpaces
+
+                mov dx, si
+
                 lol:
 
                 ret
@@ -79,13 +94,12 @@ ReadCMD         proc
 
 ;=============================================================================
 ; Size of Box analysis
-; Entry:
+; Entry:        si = string offset
 ; Exit:
 ; Destr: AL, CL                                                            !!!
 ;=============================================================================
 SizeAnalysis    proc
 
-                mov si, offset Text
                 call StrLen                             ; cl = length of Text
 
                 mov al, [BoxSizeX]
@@ -182,6 +196,7 @@ BoxLine         proc
 ;=============================================================================
 ; Write Text in the Box
 ; Entry:        ah = color
+;               si = string offset
 ;               di = place in video memory
 ;               es = segment
 ; Exit: none
@@ -189,7 +204,6 @@ BoxLine         proc
 ;=============================================================================
 BoxText         proc
                                                         ; bx = BoxSizeY * 1/2 * 80 * 2   +   BoxSizeX + StrLen(Text)
-                mov si, offset Text
                 call StrLen                             ; cl = strlen (Text)
 
                 push cx
@@ -204,6 +218,7 @@ BoxText         proc
                 add bl, 2
 
                 even_number_1:
+                        add cl, 2
                         add cl, [BoxSizeX]
 
                         shr cl, 1
@@ -442,4 +457,3 @@ end Lesgo
 //              5) change color from cmd - DONE
 //              6) change FrameStyle from cmd - DONE
 // TODO:        7) FrameStyle0 - user style
-c
