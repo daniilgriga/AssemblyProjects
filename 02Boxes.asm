@@ -3,7 +3,7 @@
 org 100h
 
 VIDEOSEG        equ 0b800h
-START_Y         equ 3*80*2
+START_Y         equ 5*80*2
 START_X         equ 10*2
 BLINKING_PINK   equ 11011100b
 
@@ -40,48 +40,68 @@ BoxSizeY db  10
 ; Function to read cmd arguments
 ; Entry:
 ; Exit:         ah = color
-;               dx = offset FrameStyle
-;
-; Destr:                                                             !!!
+;               cx = offset FrameStyle
+;               dx = offset string for frame
+; Destr:                                                                !!!
 ;=============================================================================
 ReadCMD         proc
 
                 mov si, 81h
-;===================
+
+;=================== first argument = BoxSizeX
+
                 call AtoIDEC
 
                 cmp al, 0
                 je lol
 
                 mov [BoxSizeX], al
-;===================
+
+;=================== second argument = BoxSizeY
+
                 call AtoIDEC
 
                 cmp al, 0
                 je lol
 
                 mov [BoxSizeY], al
-;===================
+
+;=================== third argument = color
+
                 call AtoIHEX
 
                 cmp al, 0
                 je lol
 
                 mov ah, al
-;===================
+
+;=================== fourth argument = FrameStyle
+
                 push ax
                 call AtoIDEC
 
-                mov cx, offset FrameStyle1
+                cmp al, 0
+                jne jump
 
-                sub al, 1
-                mov bx, 9
-                mul bx
+                mov cx, si
+                add si, 9
 
-                add cx, ax
+                jmp skip_std_style
 
+                jump:
+                        mov cx, offset FrameStyle1
+
+                        sub al, 1
+                        mov bx, 9
+                        mul bx
+
+                        add cx, ax
+
+;=================== fifth argument = text for frame
+
+                skip_std_style:
                 pop ax
-;===================
+
                 call SkipSpaces
 
                 mov dx, si
@@ -210,48 +230,40 @@ BoxText         proc
 
                 xor bx, bx
 
-                call ParityLength
+                add bl, 2                               ; destroy parity
 
-                cmp al, 0
-                je even_number_1
-
-                add bl, 2
-
-                even_number_1:
-                        add cl, 2
-                        add cl, [BoxSizeX]
-
-                        shr cl, 1
-                        shl cl, 1
-
-                        add bl, cl
-
-                        and cl, 1
-
-                        cmp cl, 0
-                        je even_number_2
-
-                        add bl, 2
-
-                        even_number_2:
-                                sub di, bx
-
-                                push ax
-                                xor ax, ax
-
-                                mov al, [BoxSizeY]
-
-                                shr al, 1
-                                shl al, 1
-
-                                mov bx, 80
-                                mul bx
-
-                                sub di, ax
-
-                                pop ax
-
-                pop cx
+                add cl, [BoxSizeX]                      ;---\
+                                                        ;    \
+                shr cl, 1                               ;     \
+                shl cl, 1                               ;      \
+                                                        ;       I
+                add bl, cl                              ;       I
+                                                        ;       I
+                and cl, 1                               ;       I
+                cmp cl, 0                               ;       I
+                je even_number_2                        ;       I
+                                                        ;       I
+                add bl, 2                               ;       I
+                                                        ;       I
+                even_number_2:                          ;       \
+                        sub di, bx                      ;        \
+                                                        ;         I        calculating text placement relative
+                        push ax                         ;         I - >          relative to the bottom
+                        xor ax, ax                      ;         I             left corner of the frame
+                                                        ;        |
+                        mov al, [BoxSizeY]              ;       |
+                                                        ;       I
+                        shr al, 1                       ;       I
+                        shl al, 1                       ;       I
+                                                        ;       I
+                        mov bx, 80                      ;       I
+                        mul bx                          ;       I
+                                                        ;       I
+                        sub di, ax                      ;       I
+                                                        ;      |
+                        pop ax                          ;     |
+                                                        ;    |
+                pop cx                                  ;---|
 
                 string:
                         lodsb
@@ -434,7 +446,7 @@ AtoIHEX         proc
                                 number:
                                         jmp runner_but_not_on_the_blade_damn
 
-                f_case:                             ; else
+                f_case:                                 ; else
 
                 ret
                 endp
@@ -456,4 +468,4 @@ end Lesgo
 //              4) text replacement - DONE
 //              5) change color from cmd - DONE
 //              6) change FrameStyle from cmd - DONE
-// TODO:        7) FrameStyle0 - user style
+// TODO:        7) FrameStyle0 - user style - DONE
