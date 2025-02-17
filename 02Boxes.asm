@@ -7,6 +7,14 @@ START_Y         equ 5*80*2
 START_X         equ 10*2
 BLINKING_PINK   equ 11011100b
 
+ASCII_NULL      equ "0"
+ASCII_NINE      equ "9"
+ASCII_A         equ "A"
+ASCII_F         equ "F"
+ASCII_SPACE     equ " "
+ASCII_SL_N      equ 0Ah
+ASCII_SL_R      equ 0Dh
+
 Lesgo:
                 mov bx, VIDEOSEG
                 mov es, bx
@@ -42,7 +50,7 @@ BoxSizeY db  10
 ; Exit:         ah = color
 ;               cx = offset FrameStyle
 ;               dx = offset string for frame
-; Destr:                                                                !!!
+; Destr: AX, BX, CX, DX                                                                !!!
 ;=============================================================================
 ReadCMD         proc
 
@@ -84,7 +92,7 @@ ReadCMD         proc
                 jne jump
 
                 mov cx, si
-                add si, 9
+                add si, 9                               ; 9 = length of FrameStyle
 
                 jmp skip_std_style
 
@@ -337,10 +345,10 @@ SkipSpaces      proc
                         cmp al, " "                     ; space
                         je skip
 
-                        cmp al, 0Ah                     ; \n
+                        cmp al, ASCII_SL_N              ; \n
                         je skip
 
-                        cmp al, 0Dh                     ; \r
+                        cmp al, ASCII_SL_R              ; \r
                         je skip
 
                         cmp al, 0                       ; end of string
@@ -376,16 +384,16 @@ AtoIDEC         proc
                         mov cl, [si]
                         inc si
 
-                        cmp cl, "0"                     ;
+                        cmp cl, ASCII_NULL              ;
                         jb false_case                   ;
                                                         ; if - else in asm :)
-                        cmp cl, "9"                     ;
+                        cmp cl, ASCII_NINE              ;
                         ja false_case                   ;
 
                         mov bx, 10
                         mul bx
 
-                        sub cl, "0"
+                        sub cl, ASCII_NULL
                         add al, cl                      ; write a number
 
                         jmp runner_but_not_on_the_blade
@@ -412,19 +420,18 @@ AtoIHEX         proc
                         mov cl, [si]
                         inc si
 
-                        cmp cl, "0"                     ;
-                        jb next_check                   ;
-                                                        ; if - else in asm :)
-                        cmp cl, "9"                     ;
-                        ja next_check                   ;
+                        cmp cl, ASCII_NULL
+                        jb next_check
+                        cmp cl, ASCII_NINE
+                        ja next_check
 
                         jmp true_case
 
                         next_check:
-                                cmp cl, "A"
+                                cmp cl, ASCII_A
                                 jb f_case
 
-                                cmp cl, "F"
+                                cmp cl, ASCII_F
                                 ja f_case
 
 
@@ -432,21 +439,21 @@ AtoIHEX         proc
                                 mov bx, 16
                                 mul bx
 
-                                cmp cl, "A"
+                                cmp cl, ASCII_A
                                 jae symbol
 
-                                sub cl, "0"
+                                sub cl, ASCII_NULL
                                 add al, cl
                                 jmp number
 
                                 symbol:
-                                        sub cl, "A"
+                                        sub cl, ASCII_A
                                         add al, cl
 
                                 number:
                                         jmp runner_but_not_on_the_blade_damn
 
-                f_case:                                 ; else
+                f_case:
 
                 ret
                 endp
