@@ -2,6 +2,11 @@
 .code
 org 100h
 
+;===============================================================
+;                       DOCUMENTATION
+;       DO NOT ENTER THIS SYMBOLS: "<" "|" ">" IN ANY LINE
+;===============================================================
+
 VIDEOSEG        equ 0b800h
 START_Y         equ 5*80*2
 START_X         equ 10*2
@@ -28,16 +33,16 @@ Lesgo:
                 xor dx, dx
                 xor cx, cx
 
-                pop si
+                pop si ; si = dx
                 call SizeAnalysis
 
-                pop si
+                pop si ; si = cx
                 call BoxBuild
 
                 pop si
                 call BoxText
 
-                mov ah, 4ch                             ; exit
+                mov ah, 4ch                     ; exit
                 int 21h
 
 
@@ -50,7 +55,7 @@ BoxSizeY db  10
 ; Exit:         ah = color
 ;               cx = offset FrameStyle
 ;               dx = offset string for frame
-; Destr: AX, BX, CX, DX                                                                !!!
+; Destr: AX, BX, CX, DX, SI                                                                !!!
 ;=============================================================================
 ReadCMD         proc
 
@@ -92,29 +97,29 @@ ReadCMD         proc
                 jne jump
 
                 mov cx, si
-                add si, 9                               ; 9 = length of FrameStyle
+                add si, 9                       ; 9 = length of FrameStyle
 
                 jmp skip_std_style
 
-                jump:
-                        mov cx, offset FrameStyle1
+jump:
+                mov cx, offset FrameStyle1
 
-                        sub al, 1
-                        mov bx, 9
-                        mul bx
+                sub al, 1
+                mov bx, 9
+                mul bx
 
-                        add cx, ax
+                add cx, ax
 
 ;=================== fifth argument = text for frame
 
-                skip_std_style:
+skip_std_style:
                 pop ax
 
                 call SkipSpaces
 
                 mov dx, si
 
-                lol:
+lol:
 
                 ret
                 endp
@@ -128,17 +133,17 @@ ReadCMD         proc
 ;=============================================================================
 SizeAnalysis    proc
 
-                call StrLen                             ; cl = length of Text
+                call StrLen                     ; cl = length of Text
 
                 mov al, [BoxSizeX]
-                cmp cl, al                              ; compare
+                cmp cl, al                      ; compare
 
-                jbe without_upd                         ; BoxSizeX => length of Text ? nothing : change
+                jbe without_upd                 ; BoxSizeX => length of Text ? nothing : change
 
                 mov [BoxSizeX], cl
-                add [BoxSizeX], 10                      ; update size
+                add [BoxSizeX], 10              ; update size
 
-                without_upd:
+without_upd:
 
                 ret
                 endp
@@ -156,16 +161,16 @@ BoxBuild        proc
 
                 mov cl, [BoxSizeY]
                 sub cl, 2
-                next:
-                        push cx                         ; save cx for last loop
+next:
+                push cx                         ; save cx for last loop
 
-                        call NextPosition
+                call NextPosition
 
-                        push si
-                        call BoxLine                    ; draw body of Box
-                        pop si
+                push si
+                call BoxLine                    ; draw body of Box
+                pop si
 
-                        pop cx                          ; return cx for last loop
+                pop cx                          ; return cx for last loop
                 loop next
 
                 call NextPosition
@@ -231,51 +236,51 @@ BoxLine         proc
 ; Destr: SI, AX, BX, CL                                                    !!!
 ;=============================================================================
 BoxText         proc
-                                                        ; bx = BoxSizeY * 1/2 * 80 * 2   +   BoxSizeX + StrLen(Text)
-                call StrLen                             ; cl = strlen (Text)
+                                                ; bx = BoxSizeY * 1/2 * 80 * 2   +   BoxSizeX + StrLen(Text)
+                call StrLen                     ; cl = strlen (Text)
 
                 push cx
 
                 xor bx, bx
 
-                add bl, 2                               ; destroy parity
+                add bl, 2                       ; destroy parity
 
-                add cl, [BoxSizeX]                      ;---\
-                                                        ;    \
-                shr cl, 1                               ;     \
-                shl cl, 1                               ;      \
-                                                        ;       I
-                add bl, cl                              ;       I
-                                                        ;       I
-                and cl, 1                               ;       I
-                cmp cl, 0                               ;       I
-                je even_number_2                        ;       I
-                                                        ;       I
-                add bl, 2                               ;       I
-                                                        ;       I
-                even_number_2:                          ;       \
-                        sub di, bx                      ;        \
-                                                        ;         I        calculating text placement relative
-                        push ax                         ;         I - >          relative to the bottom
-                        xor ax, ax                      ;         I             left corner of the frame
-                                                        ;        |
-                        mov al, [BoxSizeY]              ;       |
-                                                        ;       I
-                        shr al, 1                       ;       I
-                        shl al, 1                       ;       I
-                                                        ;       I
-                        mov bx, 80                      ;       I
-                        mul bx                          ;       I
-                                                        ;       I
-                        sub di, ax                      ;       I
-                                                        ;      |
-                        pop ax                          ;     |
-                                                        ;    |
-                pop cx                                  ;---|
+                add cl, [BoxSizeX]              ;---\
+                                                ;    \
+                shr cl, 1                       ;     \
+                shl cl, 1                       ;      \
+                                                ;       I
+                add bl, cl                      ;       I
+                                                ;       I
+                and cl, 1                       ;       I
+                cmp cl, 0                       ;       I
+                je even_number_2                ;       I
+                                                ;       I
+                add bl, 2                       ;       I
+                                                ;       I
+even_number_2:                                  ;       \
+                sub di, bx                      ;        \
+                                                ;         I        calculating text placement relative
+                push ax                         ;         I - >          relative to the bottom
+                xor ax, ax                      ;         I             right corner of the frame
+                                                ;        /
+                mov al, [BoxSizeY]              ;       /
+                                                ;       I
+                shr al, 1                       ;       I
+                shl al, 1                       ;       I
+                                                ;       I
+                mov bx, 80                      ;       I
+                mul bx                          ;       I
+                                                ;       I
+                sub di, ax                      ;       I
+                                                ;      /
+                pop ax                          ;     /
+                                                ;    /
+                pop cx                          ;---/
 
-                string:
-                        lodsb
-                        stosw
+string:
+                lodsb
+                stosw
                 loop string
 
                 ret
@@ -294,19 +299,19 @@ StrLen          proc
                 mov bx, si
 
                 xor cl, cl
-                cycle:
-                        mov al, [bx]
-                        cmp al, '#'
+cycle:
+                mov al, [bx]
+                cmp al, '#'
 
-                        je match
+                je match
 
-                        inc cl
-                        inc bx
+                inc cl
+                inc bx
 
-                        jmp cycle
+                jmp cycle
 
-                match:
-                        pop bx
+match:
+                pop bx
 
                 ret
                 endp
@@ -339,30 +344,28 @@ ParityLength    proc
 ;=============================================================================
 SkipSpaces      proc
 
-                inf_loop:
-                        mov al, [si]
+inf_loop:
+                mov al, [si]
 
-                        cmp al, " "                     ; space
-                        je skip
+                cmp al, " "                     ; space
+                je skip
 
-                        cmp al, ASCII_SL_N              ; \n
-                        je skip
+                cmp al, ASCII_SL_N              ; \n
+                je skip
 
-                        cmp al, ASCII_SL_R              ; \r
-                        je skip
+                cmp al, ASCII_SL_R              ; \r
+                je skip
 
-                        cmp al, 0                       ; end of string
-                        je  ok
+                cmp al, 0                       ; end of string
+                je  ok
 
-                        jmp ok
+                jmp ok
 
-                skip:
-                        inc si
-                        jmp inf_loop
+skip:
+                inc si
+                jmp inf_loop
 
-                ok:
-                        ret
-
+ok:
 
                 ret
                 endp
@@ -380,25 +383,25 @@ AtoIDEC         proc
                 xor ax, ax
                 xor cx, cx
 
-                runner_but_not_on_the_blade:
-                        mov cl, [si]
-                        inc si
+runner_but_not_on_the_blade:
+                mov cl, [si]
+                inc si
 
-                        cmp cl, ASCII_NULL              ;
-                        jb false_case                   ;
-                                                        ; if - else in asm :)
-                        cmp cl, ASCII_NINE              ;
-                        ja false_case                   ;
+                cmp cl, ASCII_NULL
+                jb false_case
 
-                        mov bx, 10
-                        mul bx
+                cmp cl, ASCII_NINE
+                ja false_case
 
-                        sub cl, ASCII_NULL
-                        add al, cl                      ; write a number
+                mov bx, 10
+                mul bx
 
-                        jmp runner_but_not_on_the_blade
+                sub cl, ASCII_NULL
+                add al, cl                      ; write a number
 
-                false_case:                             ; else
+                jmp runner_but_not_on_the_blade
+
+                false_case:                     ; else
 
                 ret
                 endp
@@ -416,47 +419,50 @@ AtoIHEX         proc
                 xor ax, ax
                 xor cx, cx
 
-                runner_but_not_on_the_blade_damn:
-                        mov cl, [si]
-                        inc si
+runner_but_not_on_the_blade_damn:
+                mov cl, [si]
+                inc si
 
-                        cmp cl, ASCII_NULL
-                        jb next_check
-                        cmp cl, ASCII_NINE
-                        ja next_check
+                cmp cl, ASCII_NULL
+                jb next_check
 
-                        jmp true_case
+                cmp cl, ASCII_NINE
+                ja next_check
 
-                        next_check:
-                                cmp cl, ASCII_A
-                                jb f_case
+                jmp true_case
 
-                                cmp cl, ASCII_F
-                                ja f_case
+next_check:
+                cmp cl, ASCII_A
+                jb f_case
+
+                cmp cl, ASCII_F
+                ja f_case
 
 
-                        true_case:
-                                mov bx, 16
-                                mul bx
+true_case:
+                mov bx, 16
+                mul bx
 
-                                cmp cl, ASCII_A
-                                jae symbol
+                cmp cl, ASCII_A
+                jae symbol
 
-                                sub cl, ASCII_NULL
-                                add al, cl
-                                jmp number
+                sub cl, ASCII_NULL
+                add al, cl
+                jmp number
 
-                                symbol:
-                                        sub cl, ASCII_A
-                                        add al, cl
+symbol:
+                sub cl, ASCII_A
+                add al, cl
 
-                                number:
-                                        jmp runner_but_not_on_the_blade_damn
+number:
+                jmp runner_but_not_on_the_blade_damn
 
-                f_case:
+f_case:
 
                 ret
                 endp
+
+
 
 FrameStyle1 db "123456789"
 FrameStyle2 db  201, 205, 187, 186, " ", 186, 200, 205, 188
