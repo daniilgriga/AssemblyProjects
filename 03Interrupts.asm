@@ -2,7 +2,10 @@
 .code
 org 100h
 
-include macrosEOP.asm
+EOP 	        macro
+		        mov ax, 4c00h
+		        int 21h
+	            endm			; end of program
 
 VIDEOSEG        equ 0b800h
 START_Y         equ 5*80*2
