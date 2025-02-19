@@ -2,21 +2,27 @@
 .code
 org 100h
 
-PlaceInVidSeg 	macro
-		        mov bx, VIDEOSEG
-                mov es, bx
-                mov di, START_Y + START_X
-                mov ah, 95h
-	            endm
-
 VIDEOSEG        equ 0b800h
 START_Y         equ 5*80*2
 START_X         equ 20*2
+
+PlaceInVidSeg 	macro
+		        mov bx, VIDEOSEG
+                mov es, bx
+                mov bx, START_Y + START_X
+                mov ah, 95h
+	            endm
+
 
 LessGo:
                 xor ax, ax
                 mov es, ax
                 mov bx, 09h * 4                         ;  IRQ1 interrupt vector address
+
+                mov ax, es:[bx]
+                mov Std09off, ax
+                mov ax, es:[bx + 2]
+                mov Std09seg, ax
 
                 cli                                     ; prevent the processor from executing hardware interrupts (IF = 0)
                 mov es:[bx], offset MyInt09h            ; put -offset-
@@ -27,7 +33,7 @@ LessGo:
                 mov es:[bx + 2], ax                     ; put -segment-
                 sti                                     ; set interrupt flag (IF = 1)
 
-                int 09h                                 ; for check that i will be in my func
+                ;int 09h                                 ; for check that i will be in my func
 
                 mov dx, offset EndOfProgram             ; size to keep resident
                 shr dx, 4                               ; :16 (16-byte paragraphs)
@@ -46,11 +52,12 @@ MyInt09h        proc
                 push ax
                 push bx
                 push es
+                push ds
 
                 PlaceInVidSeg
 
                 in al, 60h
-                mov es:[di], ax                         ; in RAM 'value' of port 60h
+                mov es:[bx], ax                         ; in RAM 'value' of port 60h
 
 ; ======================== Resetting the keyboard ready flag on port 61h =======================
 
@@ -71,11 +78,15 @@ MyInt09h        proc
 
 ; ==============================================================================================
 
+                pop ds
                 pop es
                 pop bx
                 pop ax
 
-                iret
+                db  0eah
+Std09off        dw  0
+Std09seg        dw  0
+
                 endp
 
 EndOfProgram:
