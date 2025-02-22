@@ -20,6 +20,7 @@ ASCII_SL_N      equ 0Ah
 ASCII_SL_R      equ 0Dh
 
 F_SCAN_CODE     equ 21h
+D_SCAN_CODE     equ 20h
 R_SCAN_CODE     equ 13h
 ; =================================================
 
@@ -49,6 +50,7 @@ MyInt09h        proc
                 in al, 60h
 
                 push ax
+                push ax
                 cmp al, F_SCAN_CODE
                 jne skip_frame
 
@@ -57,13 +59,20 @@ MyInt09h        proc
                 call BoxBuild
 skip_frame:
                 pop ax
-                cmp al, R_SCAN_CODE
+                cmp al, D_SCAN_CODE
                 jne skip_remove
 
                 mov ah, 0h
                 mov si, offset FrameStyleC
                 call BoxBuild
 skip_remove:
+                pop ax
+                cmp al, R_SCAN_CODE
+                jne skip_registers
+
+                mov ah, [CLR_FROM_CMD]
+                call PrintRegisters
+skip_registers:
 
 ; ======================== Resetting the keyboard ready flag on port 61h =======================
 
@@ -102,85 +111,6 @@ CLR_FROM_CMD    db 0
 
 ;===============================================================================================
 ;===============================================================================================
-; Function to read cmd arguments
-; Entry:
-; Exit:         ah = color
-;               cx = offset FrameStyle
-;               dx = offset string for frame
-; Destr: AX, BX, CX, DX, SI                                                                  !!!
-;===============================================================================================
-;===============================================================================================
-ReadCMD         proc
-
-                mov si, 81h
-
-;=================== first argument = BoxSizeX
-
-                call AtoIDEC
-
-                cmp al, 0
-                je lol
-
-                mov [BoxSizeX], al
-
-;=================== second argument = BoxSizeY
-
-                call AtoIDEC
-
-                cmp al, 0
-                je lol
-
-                mov [BoxSizeY], al
-
-;=================== third argument = color
-
-                call AtoIHEX
-
-                cmp al, 0
-                je lol
-
-                mov ah, al
-                mov [CLR_FROM_CMD], ah
-
-;=================== fourth argument = FrameStyle
-
-                push ax
-                call AtoIDEC
-
-                cmp al, 0
-                jne jump
-
-                mov cx, si
-                add si, 9                       ; 9 = length of FrameStyle
-
-                jmp skip_std_style
-
-jump:
-                mov cx, offset FrameStyle1
-
-                sub al, 1
-                mov bx, 9
-                mul bx
-
-                add cx, ax
-                mov [SI_FROM_CMD], cx
-
-;=================== fifth argument = text for frame
-
-skip_std_style:
-                pop ax
-
-                call SkipSpaces
-
-                mov dx, si
-
-lol:
-
-                ret
-                endp
-
-;===============================================================================================
-;===============================================================================================
 ; Draws box
 ; Entry:        di = location rn
 ;
@@ -198,15 +128,15 @@ BoxBuild        proc
                 mov cl, [BoxSizeY]
                 sub cl, 2
 next:
-                push cx                         ; save cx for last loop
+                push cx                                 ; save cx for last loop
 
                 call NextPosition
 
                 push si
-                call BoxLine                    ; draw body of Box
+                call BoxLine                            ; draw body of Box
                 pop si
 
-                pop cx                          ; return cx for last loop
+                pop cx                                  ; return cx for last loop
                 loop next
 
                 call NextPosition
@@ -264,7 +194,6 @@ BoxLine         proc
 
                 lodsb
 
-
                 mov cl, [BoxSizeX]
                 sub cl, 2
                 rep stosw
@@ -278,15 +207,134 @@ BoxLine         proc
                 endp
 
 ;===============================================================================================
-FrameStyle1 db "123456789"
-FrameStyle2 db  201, 205, 187, 186, " ", 186, 200, 205, 188
-FrameStyle3 db  "+-+| |\_/"
-FrameStyle4 db    3,   3,   3,   3, " ",   3,   3,   3,   3
-FrameStyle5 db  218, 196, 191, 179, " ", 179, 192, 196, 217
-FrameStyleC db  "         "
+;===============================================================================================
+;
+; Entry:
+; Exit:
+; Destr:                                                                                     !!!
+;===============================================================================================
+;===============================================================================================
+PrintRegisters  proc
+
+                push ax bx cx dx si di bp sp ds es ss
+
+                ;mov bx, cx
+                ;mov ds, bx                              ; install DS on our code segment
+
+                PlaceInVidSeg
+                mov si, offset RegisterNames
+                add di, 80*2 + 1*2
+                mov cx, 11                               ; output 11 registers for now...
+Reg:
+                push cx di
+
+                mov cx, 3                               ; length of str with reg is 3 symbols (AX:)
+RegOutput:
+                lodsb
+                stosw
+                loop RegOutput
+
+                pop di cx
+
+                add di, 80*2
+                loop Reg
+
+                pop ss es ds sp bp di si dx cx bx ax
+
+                ret
+                endp
+
+;===============================================================================================
+RegisterNames  db "AX:", "BX:", "CX:", "DX:", "SI:", "DI:", "BP:", "SP:", "DS:", "ES:", "SS:"
+
+FrameStyle1     db "123456789"
+FrameStyle2     db  201, 205, 187, 186, " ", 186, 200, 205, 188
+FrameStyle3     db  "+-+| |\_/"
+FrameStyle4     db    3,   3,   3,   3, " ",   3,   3,   3,   3
+FrameStyle5     db  218, 196, 191, 179, " ", 179, 192, 196, 217
+FrameStyleC     db  "         "
 ;===============================================================================================
 
 EndOfProgram:
+
+;===============================================================================================
+;===============================================================================================
+; Function to read cmd arguments
+; Entry:
+; Exit:         ah = color
+;               cx = offset FrameStyle
+;               dx = offset string for frame
+; Destr: AX, BX, CX, DX, SI                                                                  !!!
+;===============================================================================================
+;===============================================================================================
+ReadCMD         proc
+
+                mov si, 81h
+
+;=================== first argument = BoxSizeX
+
+                call AtoIDEC
+
+                cmp al, 0
+                je lol
+
+                mov [BoxSizeX], al
+
+;=================== second argument = BoxSizeY
+
+                call AtoIDEC
+
+                cmp al, 0
+                je lol
+
+                mov [BoxSizeY], al
+
+;=================== third argument = color
+
+                call AtoIHEX
+
+                cmp al, 0
+                je lol
+
+                mov ah, al
+                mov [CLR_FROM_CMD], ah
+
+;=================== fourth argument = FrameStyle
+
+                push ax
+                call AtoIDEC
+
+                cmp al, 0
+                jne jump
+
+                mov cx, si
+                add si, 9                               ; 9 = length of FrameStyle
+
+                jmp skip_std_style
+
+jump:
+                mov cx, offset FrameStyle1
+
+                sub al, 1
+                mov bx, 9
+                mul bx
+
+                add cx, ax
+                mov [SI_FROM_CMD], cx
+
+;=================== fifth argument = text for frame
+
+skip_std_style:
+                pop ax
+
+                call SkipSpaces
+
+                mov dx, si
+
+lol:
+
+                ret
+                endp
 
 ;===============================================================================================
 ;===============================================================================================
@@ -301,16 +349,16 @@ SkipSpaces      proc
 inf_loop:
                 mov al, [si]
 
-                cmp al, " "                     ; space
+                cmp al, " "                             ; space
                 je skip
 
-                cmp al, ASCII_SL_N              ; \n
+                cmp al, ASCII_SL_N                      ; \n
                 je skip
 
-                cmp al, ASCII_SL_R              ; \r
+                cmp al, ASCII_SL_R                      ; \r
                 je skip
 
-                cmp al, 0                       ; end of string
+                cmp al, 0                               ; end of string
                 je  ok
 
                 jmp ok
@@ -353,11 +401,11 @@ runner_but_not_on_the_blade:
                 mul bx
 
                 sub cl, ASCII_NULL
-                add al, cl                      ; write a number
+                add al, cl                              ; write a number
 
                 jmp runner_but_not_on_the_blade
 
-                false_case:                     ; else
+                false_case:                             ; else
 
                 ret
                 endp
