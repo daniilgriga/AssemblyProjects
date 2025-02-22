@@ -25,6 +25,7 @@ Program call example:
 ```
 
 Result:
+
 ![result of 1-st example](/images/example-1.png "be brave, brother")
 
 **\* means a peculiarity:** if you select the style numbered "0", you can set your own frame style of 9 characters. There is an example of such a program call:
@@ -33,6 +34,7 @@ Result:
 ```
 
 Result
+
 ![result of 1-st example](/images/example-2.png "stay hard, my man")
 
 ## 03Interrupts
