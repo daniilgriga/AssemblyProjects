@@ -2,6 +2,10 @@
 .code
 org 100h
 
+LessGo:         jmp main
+
+
+; =================== CONSTANTS ===================
 VIDEOSEG        equ 0b800h
 START_Y         equ 5*80*2
 START_X         equ 10*2
@@ -16,47 +20,25 @@ ASCII_SL_N      equ 0Ah
 ASCII_SL_R      equ 0Dh
 
 F_SCAN_CODE     equ 21h
+; =================================================
 
+; ===================== MACROS ====================
 PlaceInVidSeg 	macro
 		        mov bx, VIDEOSEG
                 mov es, bx
                 mov di, START_Y + START_X
                 mov ah, 97h
 	            endm
+; =================================================
 
 
-LessGo:
-                xor ax, ax
-                mov es, ax
-                mov bx, 09h * 4                         ;  IRQ1 interrupt vector address
-
-                mov ax, es:[bx]
-                mov Std09off, ax
-                mov ax, es:[bx + 2]
-                mov Std09seg, ax
-
-                cli                                     ; prevent the processor from executing hardware interrupts (IF = 0)
-                mov es:[bx], offset MyInt09h            ; put -offset-
-
-                push cs
-                pop  ax
-
-                mov es:[bx + 2], ax                     ; put -segment-
-                sti                                     ; set interrupt flag (IF = 1)
-
-                int 09h                                 ; for check that i will be in my func
-
-                mov dx, offset EndOfProgram             ; size to keep resident
-                shr dx, 4                               ; :16 (16-byte paragraphs)
-                inc dx                                  ; for some situations
-                mov ax, 3100h                           ; DOS Fn 31H: Terminate & Stay Resident
-                int 21h
-
+;===============================================================================================
 ;===============================================================================================
 ; My hardware handler (standard = int 09h)
 ; Entry: none
 ; Exit:  none
-; Destr: NONE                                                              !!!
+; Destr: NONE                                                                                !!!
+;===============================================================================================
 ;===============================================================================================
 MyInt09h        proc
 
@@ -64,21 +46,22 @@ MyInt09h        proc
                 push bx
                 push cx
                 push dx
-                push di
                 push si
+                push di
+                push bp
+                push sp
+                push ds
                 push es
+                push ss
+
+                mov bx, cs                              ;
+                mov ds, bx                              ; install DS on our code segment
 
                 in al, 60h
-
                 cmp al, F_SCAN_CODE
                 jne skip_frame
 
-
-                mov ax, cs
-                mov ds, ax
-
                 call BoxBuild
-
 skip_frame:
 
 ; ======================== Resetting the keyboard ready flag on port 61h =======================
@@ -100,9 +83,13 @@ skip_frame:
 
 ; ==============================================================================================
 
+                pop ss
                 pop es
-                pop si
+                pop ds
+                pop sp
+                pop bp
                 pop di
+                pop si
                 pop dx
                 pop cx
                 pop bx
@@ -111,34 +98,30 @@ skip_frame:
                 db  0eah
 Std09off        dw  0
 Std09seg        dw  0
+
                 endp
 
 
 BoxSizeX        equ  20
 BoxSizeY        equ  10
 
-;=============================================================================
+;===============================================================================================
+;===============================================================================================
 ; Draws box
 ; Entry:        di = location rn
 ;
 ; Exit:  none
-; Destr: DI, SI, BX, CX                                                    !!!
-;=============================================================================
+; Destr: DI, SI, BX, CX                                                                      !!!
+;===============================================================================================
+;===============================================================================================
 BoxBuild        proc
 
-                push ax
-                push bx
-                push cx
-                push dx
-                push di
-                push si
-                push es
-
                 PlaceInVidSeg
-                mov si, offset FrameStyle1
+                mov si, offset FrameStyle4
 
                 call BoxLine
 
+                xor cx, cx
                 mov cl, BoxSizeY
                 sub cl, 2
 next:
@@ -158,37 +141,36 @@ next:
                 add si, 3
                 call BoxLine
 
-                pop es
-                pop si
-                pop di
-                pop dx
-                pop cx
-                pop bx
-                pop ax
-
                 ret
                 endp
 
-;=============================================================================
+
+;===============================================================================================
+;===============================================================================================
 ; Change DI to next position for string
 ; Entry:        di = location
 ; Exit:         di = update location
-; Destr: AX, DI                                                            !!!
-;=============================================================================
+; Destr: AX, DI                                                                              !!!
+;===============================================================================================
+;===============================================================================================
 NextPosition    proc
 
-                xor bx, bx
+                push bx
 
+                xor bx, bx
                 mov bl, BoxSizeX
                 shl bx, 1
                 add di, 80*2
                 sub di, bx
-                sub di, 4
+
+                pop bx
 
                 ret
                 endp
 
-;=============================================================================
+
+;===============================================================================================
+;===============================================================================================
 ; Draws string
 ; Entry:
 ;               ah = color
@@ -196,20 +178,28 @@ NextPosition    proc
 ;               si = framestyle symbol
 ;               es = segment
 ; Exit: none
-; Destr: AX, DI, SI, CX                                                    !!!
-;=============================================================================
+; Destr: AX, DI, SI, CX                                                                      !!!
+;===============================================================================================
+;===============================================================================================
 BoxLine         proc
+
+                push cx
+                xor cx, cx
 
                 lodsb
                 stosw
 
                 lodsb
 
+
                 mov cl, BoxSizeX
+                sub cl, 2
                 rep stosw
 
                 lodsb
                 stosw
+
+                pop cx
 
                 ret
                 endp
@@ -220,8 +210,32 @@ FrameStyle3 db  "+-+| |\_/"
 FrameStyle4 db    3,   3,   3,   3, " ",   3,   3,   3,   3
 FrameStyle5 db  218, 196, 191, 179, " ", 179, 192, 196, 217
 
-Text        db "stay hard", "#"
 
 EndOfProgram:
 
-end LessGo
+main:
+                xor ax, ax                              ;
+                mov es, ax                              ;
+                mov bx, 09h * 4                         ;  IRQ1 (Interrupt Request) vector address
+
+                mov ax, es:[bx]                         ;
+                mov Std09off, ax                        ;
+                mov ax, es:[bx + 2]                     ;
+                mov Std09seg, ax                        ; saving the address of the standard 09h interrupt
+
+                cli                                     ; prevent the processor from executing hardware interrupts (IF = 0)
+                mov es:[bx], offset MyInt09h            ; put -offset-
+
+                push cs
+                pop  ax
+
+                mov es:[bx + 2], ax                     ; put -segment-
+                sti                                     ; set interrupt flag (IF = 1)
+
+                mov dx, offset EndOfProgram             ; size to keep resident
+                shr dx, 4                               ; :16 (16-byte paragraphs)
+                inc dx                                  ; for some situations
+                mov ax, 3100h                           ; DOS Fn 31H: Terminate & Stay Resident
+                int 21h
+
+end             LessGo
