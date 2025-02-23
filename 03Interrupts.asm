@@ -7,8 +7,10 @@ LessGo:         jmp Main
 
 ; =================== CONSTANTS ===================
 VIDEOSEG        equ 0b800h
-START_Y         equ 0
-START_X         equ 0
+START_Y         equ 1*80*2
+START_X         equ (80 - 10)*2
+
+STD_COLOR       equ 52h
 
 ASCII_NULL      equ "0"
 ASCII_NINE      equ "9"
@@ -50,29 +52,11 @@ MyInt09h        proc
 
                 in al, 60h
 
-                ;cmp al, 1Dh                             ; ctrl make
-                ;je set_ctrl
-                ;cmp al, 9Dh
-                ;je clear_ctrl                           ; ctrl break
-
-                ;cmp [CtrlSetStatus], 1
-                ;je skip_that_sh
-
                 cmp al, F_SCAN_CODE
                 je draw_frame
-                ;cmp al, R_SCAN_CODE
-                ;je draw_registers
                 cmp al, D_SCAN_CODE
                 je remove
                 jmp skip_that_sh
-
-;set_ctrl:
-;                mov [CtrlSetStatus], 1
-;                jmp skip_that_sh
-
-;clear_ctrl:
-;                mov [CtrlSetStatus], 0
-;                jmp skip_that_sh
 
 draw_frame:
                 cmp [OutputStatus], 1
@@ -84,21 +68,11 @@ draw_frame:
                 mov si, [SI_FROM_CMD]
 
                 call BoxBuild
+
                 call PrintRegisters
 
                 mov [OutputStatus], 1
                 jmp end_int
-
-;draw_registers:
-;                cmp [OutputStatus], 1
-;                je skip_that_sh
-
-;                call SaveScreen
-
-;                mov ah, [CLR_FROM_CMD]
-;                call PrintRegisters
-;                mov [OutputStatus], 1
-;                jmp end_int
 
 remove:
                 cmp [OutputStatus], 0
@@ -137,11 +111,11 @@ Std09seg        dw  0
                 endp
 
 ;===============================================================================================
-BoxSizeX        db  20
-BoxSizeY        db  10
+BoxSizeX        db  10
+BoxSizeY        db  13
 
-SI_FROM_CMD     dw  0
-CLR_FROM_CMD    db  0
+SI_FROM_CMD     dw  offset FrameStyle5
+CLR_FROM_CMD    db  57h
 
 OutputStatus    db  0
 CtrlSetStatus   db  0
@@ -270,9 +244,8 @@ RegOutput:
                 stosw
                 loop RegOutput
 
-                dec bp
-                dec bp
-                mov bx, ss:[bp]
+                mov bx, ss:[bp + 2]
+                add bp, 2
                 call PrintRegValues
 
                 pop di cx
@@ -357,10 +330,10 @@ save_process_str:
 
 ;===============================================================================================
 ;===============================================================================================
-;
+; Reopen screen, that was saved
 ; Entry:
 ; Exit:
-; Destr:                                                                           !!!
+; Destr: AX, CX, DI, SI                                                                      !!!
 ;===============================================================================================
 ;===============================================================================================
 ReopenScreen    proc
@@ -405,10 +378,10 @@ FrameStyle4     db    3,   3,   3,   3, " ",   3,   3,   3,   3
 FrameStyle5     db  218, 196, 191, 179, " ", 179, 192, 196, 217
 FrameStyleC     db  "         "
 
-ScreenBuffer    dw  130
+ScreenBuffer    dw 130 dup (0)
 ;===============================================================================================
 
-EndOfProgram:
+SavePoint:
 
 ;===============================================================================================
 ;===============================================================================================
@@ -449,8 +422,7 @@ ReadCMD         proc
                 cmp al, 0
                 je lol
 
-                mov ah, al
-                mov [CLR_FROM_CMD], ah
+                mov [CLR_FROM_CMD], al
 
 ;=================== fourth argument = FrameStyle
 
@@ -485,7 +457,6 @@ skip_std_style:
                 mov dx, si
 
 lol:
-
                 ret
                 endp
 
@@ -521,7 +492,6 @@ skip:
                 jmp inf_loop
 
 ok:
-
                 ret
                 endp
 
@@ -641,7 +611,7 @@ Main:
                 mov es:[bx + 2], ax                     ; put -segment-
                 sti                                     ; set interrupt flag (IF = 1)
 
-                mov dx, offset EndOfProgram             ; size to keep resident
+                mov dx, offset SavePoint             ; size to keep resident
                 shr dx, 4                               ; :16 (16-byte paragraphs)
                 inc dx                                  ; for some situations
                 mov ax, 3100h                           ; DOS Fn 31H: Terminate & Stay Resident
