@@ -2,7 +2,7 @@
 .code
 org 100h
 
-LessGo:         jmp main
+LessGo:         jmp Main
 
 
 ; =================== CONSTANTS ===================
@@ -46,31 +46,66 @@ MyInt09h        proc
                 mov bx, cs                              ;
                 mov ds, bx                              ; install DS on our code segment
 
+                xor ax, ax
+
                 in al, 60h
+
+                ;cmp al, 1Dh                             ; ctrl make
+                ;je set_ctrl
+                ;cmp al, 9Dh
+                ;je clear_ctrl                           ; ctrl break
+
+                ;cmp [CtrlSetStatus], 1
+                ;je skip_that_sh
 
                 cmp al, F_SCAN_CODE
                 je draw_frame
+                ;cmp al, R_SCAN_CODE
+                ;je draw_registers
                 cmp al, D_SCAN_CODE
-                je draw_remove
-                cmp al, R_SCAN_CODE
-                je draw_registers
+                je remove
                 jmp skip_that_sh
 
+;set_ctrl:
+;                mov [CtrlSetStatus], 1
+;                jmp skip_that_sh
+
+;clear_ctrl:
+;                mov [CtrlSetStatus], 0
+;                jmp skip_that_sh
+
 draw_frame:
+                cmp [OutputStatus], 1
+                je skip_that_sh
+
+                call SaveScreen
+
                 mov ah, [CLR_FROM_CMD]
                 mov si, [SI_FROM_CMD]
-                call BoxBuild
-                jmp end_int
 
-draw_remove:
-                mov ah, 0h
-                mov si, offset FrameStyleC
                 call BoxBuild
-                jmp end_int
-
-draw_registers:
-                mov ah, [CLR_FROM_CMD]
                 call PrintRegisters
+
+                mov [OutputStatus], 1
+                jmp end_int
+
+;draw_registers:
+;                cmp [OutputStatus], 1
+;                je skip_that_sh
+
+;                call SaveScreen
+
+;                mov ah, [CLR_FROM_CMD]
+;                call PrintRegisters
+;                mov [OutputStatus], 1
+;                jmp end_int
+
+remove:
+                cmp [OutputStatus], 0
+                je skip_that_sh
+
+                call ReopenScreen
+                mov [OutputStatus], 0
                 jmp end_int
 
 skip_that_sh:
@@ -108,7 +143,8 @@ BoxSizeY        db  10
 SI_FROM_CMD     dw  0
 CLR_FROM_CMD    db  0
 
-FrameStatus     db  0
+OutputStatus    db  0
+CtrlSetStatus   db  0
 ;===============================================================================================
 
 ;===============================================================================================
@@ -282,6 +318,84 @@ numero:
                 endp
 
 ;===============================================================================================
+;===============================================================================================
+; Func that saving teh current screen
+; Entry:
+; Exit:
+; Destr: CX, DX, AX                                                                          !!!
+;===============================================================================================
+;===============================================================================================
+SaveScreen      proc
+
+                mov ax, cs
+                mov ds, ax
+
+                PlaceInVidSeg
+                mov si, offset ScreenBuffer
+                mov cx, 13
+save_process_row:
+                push cx
+                push di
+
+                mov cx, 10
+
+save_process_str:
+                mov ax, es:[di]
+                mov [si], ax
+                add di, 2
+                add si, 2
+                loop save_process_str
+
+                pop di
+                add di, 80*2
+
+                pop cx
+                loop save_process_row
+
+                ret
+                endp
+
+;===============================================================================================
+;===============================================================================================
+;
+; Entry:
+; Exit:
+; Destr:                                                                           !!!
+;===============================================================================================
+;===============================================================================================
+ReopenScreen    proc
+
+                mov ax, cs
+                mov ds, ax
+
+                PlaceInVidSeg
+                mov si, offset ScreenBuffer
+
+                mov cx, 13
+
+reopen_process_row:
+                push cx
+                push di
+
+                mov cx, 10
+
+reopen_process_str:
+                mov ax, [si]
+                mov es:[di], ax
+                add di, 2
+                add si, 2
+                loop reopen_process_str
+
+                pop di
+                add di, 80*2
+
+                pop cx
+                loop reopen_process_row
+
+                ret
+                endp
+
+;===============================================================================================
 RegisterNames   db  "AX:", "BX:", "CX:", "DX:", "SI:", "DI:", "BP:", "SP:", "DS:", "ES:", "SS:"
 
 FrameStyle1     db  "123456789"
@@ -291,7 +405,7 @@ FrameStyle4     db    3,   3,   3,   3, " ",   3,   3,   3,   3
 FrameStyle5     db  218, 196, 191, 179, " ", 179, 192, 196, 217
 FrameStyleC     db  "         "
 
-ScreenBuffer    dw  200
+ScreenBuffer    dw  130
 ;===============================================================================================
 
 EndOfProgram:
@@ -506,7 +620,7 @@ f_case:
                 ret
                 endp
 
-main:
+Main:
                 call ReadCMD
 
                 xor ax, ax                              ;
