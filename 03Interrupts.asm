@@ -7,9 +7,8 @@ LessGo:         jmp main
 
 ; =================== CONSTANTS ===================
 VIDEOSEG        equ 0b800h
-START_Y         equ 5*80*2
-START_X         equ 10*2
-BLINKING_PINK   equ 11011100b
+START_Y         equ 0
+START_X         equ 0
 
 ASCII_NULL      equ "0"
 ASCII_NINE      equ "9"
@@ -42,38 +41,39 @@ PlaceInVidSeg 	macro
 ;===============================================================================================
 MyInt09h        proc
 
-                push ax bx cx dx si di bp sp ds es ss
+                push ss es ds sp bp di si dx cx bx ax
 
                 mov bx, cs                              ;
                 mov ds, bx                              ; install DS on our code segment
 
                 in al, 60h
 
-                push ax
-                push ax
                 cmp al, F_SCAN_CODE
-                jne skip_frame
+                je draw_frame
+                cmp al, D_SCAN_CODE
+                je draw_remove
+                cmp al, R_SCAN_CODE
+                je draw_registers
+                jmp skip_that_sh
 
+draw_frame:
                 mov ah, [CLR_FROM_CMD]
                 mov si, [SI_FROM_CMD]
                 call BoxBuild
-skip_frame:
-                pop ax
-                cmp al, D_SCAN_CODE
-                jne skip_remove
+                jmp end_int
 
+draw_remove:
                 mov ah, 0h
                 mov si, offset FrameStyleC
                 call BoxBuild
-skip_remove:
-                pop ax
-                cmp al, R_SCAN_CODE
-                jne skip_registers
+                jmp end_int
 
+draw_registers:
                 mov ah, [CLR_FROM_CMD]
                 call PrintRegisters
-skip_registers:
+                jmp end_int
 
+skip_that_sh:
 ; ======================== Resetting the keyboard ready flag on port 61h =======================
 
                 in al, 61h
@@ -92,8 +92,8 @@ skip_registers:
                                                         ;       which controls hardware interrupt processing
 
 ; ==============================================================================================
-
-                pop ss es ds sp bp di si dx cx bx ax
+end_int:
+                pop ax bx cx dx si di bp sp ds es ss
 
                 db  0eah
 Std09off        dw  0
@@ -105,8 +105,10 @@ Std09seg        dw  0
 BoxSizeX        db  20
 BoxSizeY        db  10
 
-SI_FROM_CMD     dw 0
-CLR_FROM_CMD    db 0
+SI_FROM_CMD     dw  0
+CLR_FROM_CMD    db  0
+
+FrameStatus     db  0
 ;===============================================================================================
 
 ;===============================================================================================
@@ -208,23 +210,21 @@ BoxLine         proc
 
 ;===============================================================================================
 ;===============================================================================================
-;
+; Print Register names in video memory (RAM)
 ; Entry:
 ; Exit:
-; Destr:                                                                                     !!!
+; Destr: SI, DI, CX, BX, SP                                                                  !!!
 ;===============================================================================================
 ;===============================================================================================
 PrintRegisters  proc
 
-                push ax bx cx dx si di bp sp ds es ss
-
-                ;mov bx, cx
-                ;mov ds, bx                              ; install DS on our code segment
+                push bp
+                mov bp, sp
 
                 PlaceInVidSeg
                 mov si, offset RegisterNames
                 add di, 80*2 + 1*2
-                mov cx, 11                               ; output 11 registers for now...
+                mov cx, 11                              ; output 11 registers for now...
 Reg:
                 push cx di
 
@@ -234,25 +234,64 @@ RegOutput:
                 stosw
                 loop RegOutput
 
+                dec bp
+                dec bp
+                mov bx, ss:[bp]
+                call PrintRegValues
+
                 pop di cx
 
                 add di, 80*2
                 loop Reg
 
-                pop ss es ds sp bp di si dx cx bx ax
+                pop bp
 
                 ret
                 endp
 
 ;===============================================================================================
-RegisterNames  db "AX:", "BX:", "CX:", "DX:", "SI:", "DI:", "BP:", "SP:", "DS:", "ES:", "SS:"
+;===============================================================================================
+; Print Registers value in video memory (RAM)
+; Entry:
+; Exit:
+; Destr: CX, DX, AX                                                                          !!!
+;===============================================================================================
+;===============================================================================================
+PrintRegValues  proc
 
-FrameStyle1     db "123456789"
+                mov cx, 4
+hex_convert:
+                mov dx, bx
+                and dx, 0Fh
+
+                cmp dx, 9
+                jle numero
+
+                add dx, 7
+numero:
+                add dx, "0"
+
+                mov al, dl
+                stosw
+                shr bx, 4
+                loop hex_convert
+
+                mov byte ptr es:[di], "h"
+
+                ret
+                endp
+
+;===============================================================================================
+RegisterNames   db  "AX:", "BX:", "CX:", "DX:", "SI:", "DI:", "BP:", "SP:", "DS:", "ES:", "SS:"
+
+FrameStyle1     db  "123456789"
 FrameStyle2     db  201, 205, 187, 186, " ", 186, 200, 205, 188
 FrameStyle3     db  "+-+| |\_/"
 FrameStyle4     db    3,   3,   3,   3, " ",   3,   3,   3,   3
 FrameStyle5     db  218, 196, 191, 179, " ", 179, 192, 196, 217
 FrameStyleC     db  "         "
+
+ScreenBuffer    dw  200
 ;===============================================================================================
 
 EndOfProgram:
