@@ -22,7 +22,7 @@ ASCII_SL_R      equ 0Dh
 
 F_SCAN_CODE     equ 21h
 D_SCAN_CODE     equ 20h
-R_SCAN_CODE     equ 13h
+T_SCAN_CODE     equ 14h
 ; =================================================
 
 ; ===================== MACROS ====================
@@ -32,6 +32,46 @@ PlaceInVidSeg 	macro
                 mov di, START_Y + START_X
 	            endm
 ; =================================================
+
+;===============================================================================================
+;===============================================================================================
+; My hardware handler (standard = int 08h)
+; Entry: none
+; Exit:  none
+; Destr: NONE                                                                                !!!
+;===============================================================================================
+;===============================================================================================
+MyInt08h        proc
+
+                push ss es ds sp bp di si dx cx bx ax
+
+                mov bx, cs                              ;
+                mov ds, bx                              ; install DS on our code segment
+
+                cmp [OutputStatus], 1
+                jne skip_timer
+
+                cmp [TimerStatus], 1
+                jne skip_timer
+
+                call ReopenScreen
+                call SaveScreen
+                mov ah, [CLR_FROM_CMD]
+                mov si, [SI_FROM_CMD]
+                call BoxBuild
+                call PrintRegisters
+
+skip_timer:
+                mov al, 20h
+                out 20h, al
+
+                pop ax bx cx dx si di bp sp ds es ss
+
+                db  0eah
+Std08off        dw  0
+Std08seg        dw  0
+
+                endp
 
 ;===============================================================================================
 ;===============================================================================================
@@ -56,6 +96,9 @@ MyInt09h        proc
                 je draw_frame
                 cmp al, D_SCAN_CODE
                 je remove
+                cmp al, T_SCAN_CODE
+                je timer
+
                 jmp skip_that_sh
 
 draw_frame:
@@ -68,7 +111,6 @@ draw_frame:
                 mov si, [SI_FROM_CMD]
 
                 call BoxBuild
-
                 call PrintRegisters
 
                 mov [OutputStatus], 1
@@ -79,7 +121,12 @@ remove:
                 je skip_that_sh
 
                 call ReopenScreen
+
                 mov [OutputStatus], 0
+                jmp end_int
+
+timer:
+                xor [TimerStatus], 1
                 jmp end_int
 
 skip_that_sh:
@@ -118,7 +165,7 @@ SI_FROM_CMD     dw  offset FrameStyle5
 CLR_FROM_CMD    db  57h
 
 OutputStatus    db  0
-CtrlSetStatus   db  0
+TimerStatus     db  0
 ;===============================================================================================
 
 ;===============================================================================================
@@ -244,7 +291,7 @@ RegOutput:
                 stosw
                 loop RegOutput
 
-                mov bx, ss:[bp + 2]
+                mov bx, ss:[bp + 4]
                 add bp, 2
                 call PrintRegValues
 
@@ -261,12 +308,20 @@ RegOutput:
 ;===============================================================================================
 ;===============================================================================================
 ; Print Registers value in video memory (RAM)
-; Entry:
+; Entry:        bx = registers value
 ; Exit:
 ; Destr: CX, DX, AX                                                                          !!!
 ;===============================================================================================
 ;===============================================================================================
+
 PrintRegValues  proc
+
+                push si
+
+                mov si, offset RegValBuffer
+
+                mov byte ptr [si], "h"
+                inc si
 
                 mov cx, 4
 hex_convert:
@@ -280,16 +335,23 @@ hex_convert:
 numero:
                 add dx, "0"
 
-                mov al, dl
-                stosw
+                mov [si], dl
+                inc si
                 shr bx, 4
                 loop hex_convert
 
-                mov byte ptr es:[di], "h"
+                mov cx, 5
+
+turn_up_loop:
+                mov al, [si]
+                stosw
+                dec si
+                loop turn_up_loop
+
+                pop si
 
                 ret
                 endp
-
 ;===============================================================================================
 ;===============================================================================================
 ; Func that saving teh current screen
@@ -378,7 +440,8 @@ FrameStyle4     db    3,   3,   3,   3, " ",   3,   3,   3,   3
 FrameStyle5     db  218, 196, 191, 179, " ", 179, 192, 196, 217
 FrameStyleC     db  "         "
 
-ScreenBuffer    dw 130 dup (0)
+RegValBuffer    db 5    dup (0)
+ScreenBuffer    dw 130  dup (0)
 ;===============================================================================================
 
 SavePoint:
@@ -593,8 +656,23 @@ f_case:
 Main:
                 call ReadCMD
 
-                xor ax, ax                              ;
-                mov es, ax                              ;
+                xor ax, ax
+                mov es, ax
+
+                mov bx, 08h * 4                         ; IRQ0 (Interrupt Request) vector address
+
+                mov ax, es:[bx]                         ;
+                mov Std08off, ax                        ;
+                mov ax, es:[bx + 2]                     ;
+                mov Std08seg, ax                        ; saving the address of the standard 08h interrupt
+
+                cli                                     ; prevent the processor from executing hardware interrupts (IF = 0)
+                mov es:[bx], offset MyInt08h            ; put -offset-
+                push cs
+                pop  ax
+                mov es:[bx + 2], ax                     ; put -segment-
+                sti                                     ; set interrupt flag (IF = 1)
+
                 mov bx, 09h * 4                         ;  IRQ1 (Interrupt Request) vector address
 
                 mov ax, es:[bx]                         ;
@@ -602,16 +680,14 @@ Main:
                 mov ax, es:[bx + 2]                     ;
                 mov Std09seg, ax                        ; saving the address of the standard 09h interrupt
 
-                cli                                     ; prevent the processor from executing hardware interrupts (IF = 0)
-                mov es:[bx], offset MyInt09h            ; put -offset-
-
+                cli
+                mov es:[bx], offset MyInt09h
                 push cs
                 pop  ax
+                mov es:[bx + 2], ax
+                sti
 
-                mov es:[bx + 2], ax                     ; put -segment-
-                sti                                     ; set interrupt flag (IF = 1)
-
-                mov dx, offset SavePoint             ; size to keep resident
+                mov dx, offset SavePoint                ; size to keep resident
                 shr dx, 4                               ; :16 (16-byte paragraphs)
                 inc dx                                  ; for some situations
                 mov ax, 3100h                           ; DOS Fn 31H: Terminate & Stay Resident
