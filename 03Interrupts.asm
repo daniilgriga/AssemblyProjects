@@ -56,7 +56,7 @@ MyInt08h        proc
 
                 call ReopenScreen
                 call SaveScreen
-                mov ah, [CLR_FROM_CMD]
+                mov ah, [COLOR_FROM_CMD]
                 mov si, [SI_FROM_CMD]
                 call BoxBuild
                 call PrintRegisters
@@ -67,7 +67,7 @@ skip_timer:
 
                 pop ax bx cx dx si di bp sp ds es ss
 
-                db  0eah
+                db  0eah                                ; far jmp on standard 08h interrupt
 Std08off        dw  0
 Std08seg        dw  0
 
@@ -93,21 +93,21 @@ MyInt09h        proc
                 in al, 60h
 
                 cmp al, F_SCAN_CODE
-                je draw_frame
+                je draw_data
                 cmp al, D_SCAN_CODE
-                je remove
+                je remove_data
                 cmp al, T_SCAN_CODE
                 je timer
 
                 jmp skip_that_sh
 
-draw_frame:
+draw_data:
                 cmp [OutputStatus], 1
                 je skip_that_sh
 
                 call SaveScreen
 
-                mov ah, [CLR_FROM_CMD]
+                mov ah, [COLOR_FROM_CMD]
                 mov si, [SI_FROM_CMD]
 
                 call BoxBuild
@@ -116,7 +116,7 @@ draw_frame:
                 mov [OutputStatus], 1
                 jmp end_int
 
-remove:
+remove_data:
                 cmp [OutputStatus], 0
                 je skip_that_sh
 
@@ -151,7 +151,7 @@ skip_that_sh:
 end_int:
                 pop ax bx cx dx si di bp sp ds es ss
 
-                db  0eah
+                db  0eah                                ; far jmp on standard 09h interrupt
 Std09off        dw  0
 Std09seg        dw  0
 
@@ -162,7 +162,7 @@ BoxSizeX        db  10
 BoxSizeY        db  13
 
 SI_FROM_CMD     dw  offset FrameStyle5
-CLR_FROM_CMD    db  57h
+COLOR_FROM_CMD  db  57h
 
 OutputStatus    db  0
 TimerStatus     db  0
@@ -319,7 +319,6 @@ PrintRegValues  proc
                 push si
 
                 mov si, offset RegValBuffer
-
                 mov byte ptr [si], "h"
                 inc si
 
@@ -327,14 +326,13 @@ PrintRegValues  proc
 hex_convert:
                 mov dx, bx
                 and dx, 0Fh
-
                 cmp dx, 9
                 jle numero
 
                 add dx, 7
+
 numero:
                 add dx, "0"
-
                 mov [si], dl
                 inc si
                 shr bx, 4
@@ -367,12 +365,15 @@ SaveScreen      proc
 
                 PlaceInVidSeg
                 mov si, offset ScreenBuffer
-                mov cx, 13
+
+                xor cx, cx
+                mov cl, [BoxSizeY]
 save_process_row:
                 push cx
                 push di
 
-                mov cx, 10
+                xor cx, cx
+                mov cl, [BoxSizeX]
 
 save_process_str:
                 mov ax, es:[di]
@@ -406,13 +407,15 @@ ReopenScreen    proc
                 PlaceInVidSeg
                 mov si, offset ScreenBuffer
 
-                mov cx, 13
+                xor cx, cx
+                mov cl, [BoxSizeY]
 
 reopen_process_row:
                 push cx
                 push di
 
-                mov cx, 10
+                xor cx, cx
+                mov cl, [BoxSizeX]
 
 reopen_process_str:
                 mov ax, [si]
@@ -485,7 +488,7 @@ ReadCMD         proc
                 cmp al, 0
                 je lol
 
-                mov [CLR_FROM_CMD], al
+                mov [COLOR_FROM_CMD], al
 
 ;=================== fourth argument = FrameStyle
 
@@ -514,9 +517,7 @@ jump:
 
 skip_std_style:
                 pop ax
-
                 call SkipSpaces
-
                 mov dx, si
 
 lol:
@@ -653,6 +654,10 @@ f_case:
                 ret
                 endp
 
+;===============================================================================================
+;============================================ MAIN =============================================
+;===============================================================================================
+
 Main:
                 call ReadCMD
 
@@ -692,5 +697,9 @@ Main:
                 inc dx                                  ; for some situations
                 mov ax, 3100h                           ; DOS Fn 31H: Terminate & Stay Resident
                 int 21h
+
+;===============================================================================================
+;===============================================================================================
+;===============================================================================================
 
 end             LessGo
