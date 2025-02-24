@@ -23,6 +23,9 @@ ASCII_SL_R      equ 0Dh
 F_SCAN_CODE     equ 21h
 D_SCAN_CODE     equ 20h
 T_SCAN_CODE     equ 14h
+
+    ACTIVE      equ 1
+NOT_ACTIVE      equ 0
 ; =================================================
 
 ; ===================== MACROS ====================
@@ -31,6 +34,11 @@ PlaceInVidSeg 	macro
                 mov es, bx
                 mov di, START_Y + START_X
 	            endm
+
+InstallDS       macro
+                mov bx, cs                              ;
+                mov ds, bx                              ; install DS on our code segment
+                endm
 ; =================================================
 
 ;===============================================================================================
@@ -45,13 +53,12 @@ MyInt08h        proc
 
                 push ss es ds sp bp di si dx cx bx ax
 
-                mov bx, cs                              ;
-                mov ds, bx                              ; install DS on our code segment
+                InstallDS
 
-                cmp [OutputStatus], 1
+                cmp [OutputStatus], ACTIVE
                 jne skip_timer
 
-                cmp [TimerStatus], 1
+                cmp [TimerStatus], ACTIVE
                 jne skip_timer
 
                 call ReopenScreen
@@ -85,8 +92,7 @@ MyInt09h        proc
 
                 push ss es ds sp bp di si dx cx bx ax
 
-                mov bx, cs                              ;
-                mov ds, bx                              ; install DS on our code segment
+                InstallDS
 
                 xor ax, ax
 
@@ -102,7 +108,7 @@ MyInt09h        proc
                 jmp skip_that_sh
 
 draw_data:
-                cmp [OutputStatus], 1
+                cmp [OutputStatus], ACTIVE
                 je skip_that_sh
 
                 call SaveScreen
@@ -113,20 +119,20 @@ draw_data:
                 call BoxBuild
                 call PrintRegisters
 
-                mov [OutputStatus], 1
+                mov [OutputStatus], ACTIVE
                 jmp end_int
 
 remove_data:
-                cmp [OutputStatus], 0
+                cmp [OutputStatus], NOT_ACTIVE
                 je skip_that_sh
 
                 call ReopenScreen
 
-                mov [OutputStatus], 0
+                mov [OutputStatus], NOT_ACTIVE
                 jmp end_int
 
 timer:
-                xor [TimerStatus], 1
+                xor [TimerStatus], ACTIVE
                 jmp end_int
 
 skip_that_sh:
@@ -185,7 +191,7 @@ BoxBuild        proc
 
                 xor cx, cx
                 mov cl, [BoxSizeY]
-                sub cl, 2
+                sub cl, 2                               ; remove first and last rows
 next:
                 push cx                                 ; save cx for last loop
 
@@ -287,17 +293,17 @@ Reg:
 
                 mov cx, 3                               ; length of str with reg is 3 symbols (AX:)
 RegOutput:
-                lodsb
-                stosw
-                loop RegOutput
-
-                mov bx, ss:[bp + 4]
-                add bp, 2
-                call PrintRegValues
-
-                pop di cx
-
-                add di, 80*2
+                lodsb                                   ;
+                stosw                                   ;
+                loop RegOutput                          ;                               STACK
+                                                        ; I----------I----------I----------I----------I----------I- - - - -
+                mov bx, ss:[bp + 4]                     ; I          I          I          I          I          I
+                add bp, 2                               ; I    DX    I    CX    I    BP    I ret.addr I    AX    I   BX
+                call PrintRegValues                     ; I          I          I          I          I          I
+                                                        ; I----------I----------I----------I----------I----------I- - - - -
+                pop di cx                               ;      ^                     ^          ^          ^
+                                                        ;     SP                    BP       BP + 2     BP + 4
+                add di, 80*2                            ;
                 loop Reg
 
                 pop bp
@@ -318,30 +324,30 @@ PrintRegValues  proc
 
                 push si
 
-                mov si, offset RegValBuffer
-                mov byte ptr [si], "h"
+                mov si, offset RegValBuffer             ; temporary buffer
+                mov byte ptr [si], "h"                  ; HEX
                 inc si
 
                 mov cx, 4
 hex_convert:
                 mov dx, bx
-                and dx, 0Fh
-                cmp dx, 9
+                and dx, 0Fh                             ; low 4 bits
+                cmp dx, 9                               ; check for numbers
                 jle numero
 
-                add dx, 7
+                add dx, 7                               ; if its not a number -> +7 for ASCII 'A' (need + '0')
 
 numero:
                 add dx, "0"
                 mov [si], dl
                 inc si
-                shr bx, 4
+                shr bx, 4                               ; shift for next 4 bits
                 loop hex_convert
 
-                mov cx, 5
+                mov cx, 5                               ; 4 numbers + 1 "h"
 
 turn_up_loop:
-                mov al, [si]
+                mov al, [si]                            ; turn up a value and output from temporary buffer to RAM
                 stosw
                 dec si
                 loop turn_up_loop
@@ -360,11 +366,10 @@ turn_up_loop:
 ;===============================================================================================
 SaveScreen      proc
 
-                mov ax, cs
-                mov ds, ax
-
+                InstallDS
                 PlaceInVidSeg
-                mov si, offset ScreenBuffer
+
+                mov si, offset ScreenBuffer             ; temporary buffer for save screen
 
                 xor cx, cx
                 mov cl, [BoxSizeY]
@@ -376,8 +381,8 @@ save_process_row:
                 mov cl, [BoxSizeX]
 
 save_process_str:
-                mov ax, es:[di]
-                mov [si], ax
+                mov ax, es:[di]                         ; from RAM
+                mov [si], ax                            ; to temporary buffer
                 add di, 2
                 add si, 2
                 loop save_process_str
@@ -401,10 +406,9 @@ save_process_str:
 ;===============================================================================================
 ReopenScreen    proc
 
-                mov ax, cs
-                mov ds, ax
-
+                InstallDS
                 PlaceInVidSeg
+
                 mov si, offset ScreenBuffer
 
                 xor cx, cx
@@ -418,8 +422,8 @@ reopen_process_row:
                 mov cl, [BoxSizeX]
 
 reopen_process_str:
-                mov ax, [si]
-                mov es:[di], ax
+                mov ax, [si]                                ; from temporary buffer
+                mov es:[di], ax                             ; to RAM
                 add di, 2
                 add si, 2
                 loop reopen_process_str
