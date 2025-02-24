@@ -167,7 +167,7 @@ Std09seg        dw  0
 
 ;===============================================================================================
 BoxSizeX        db  10
-BoxSizeY        db  13
+BoxSizeY        db  15
 
 SI_FROM_CMD     dw  offset FrameStyle5
 COLOR_FROM_CMD  db  57h
@@ -289,7 +289,7 @@ PrintRegisters  proc
                 PlaceInVidSeg
                 mov si, offset RegisterNames
                 add di, LENGTH_SCREEN + 1*2
-                mov cx, 11                              ; output 11 registers for now...
+                mov cx, 13                              ; output 11 registers for now...
 Reg:
                 push cx di
 
@@ -440,7 +440,7 @@ reopen_process_str:
                 endp
 
 ;===============================================================================================
-RegisterNames   db  "AX:", "BX:", "CX:", "DX:", "SI:", "DI:", "BP:", "SP:", "DS:", "ES:", "SS:"
+RegisterNames   db  "AX:", "BX:", "CX:", "DX:", "SI:", "DI:", "BP:", "SP:", "DS:", "ES:", "SS:", "IP:", "CS:"
 
 FrameStyle1     db  "123456789"
 FrameStyle2     db  201, 205, 187, 186, " ", 186, 200, 205, 188
@@ -450,7 +450,7 @@ FrameStyle5     db  218, 196, 191, 179, " ", 179, 192, 196, 217
 FrameStyleC     db  "         "
 
 RegValBuffer    db 5    dup (0)
-ScreenBuffer    dw 130  dup (0)
+ScreenBuffer    dw 150  dup (0)
 ;===============================================================================================
 
 SavePoint:
