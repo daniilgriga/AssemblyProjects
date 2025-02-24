@@ -6,9 +6,11 @@ LessGo:         jmp Main
 
 
 ; =================== CONSTANTS ===================
+LENGTH_SCREEN   equ 80*2
+
 VIDEOSEG        equ 0b800h
-START_Y         equ 1*80*2
-START_X         equ (80 - 10)*2
+START_Y         equ 1*LENGTH_SCREEN
+START_X         equ LENGTH_SCREEN - 10*2
 
 STD_COLOR       equ 52h
 
@@ -228,7 +230,7 @@ NextPosition    proc
                 xor bx, bx
                 mov bl, [BoxSizeX]
                 shl bx, 1
-                add di, 80*2
+                add di, LENGTH_SCREEN
                 sub di, bx
 
                 pop bx
@@ -286,7 +288,7 @@ PrintRegisters  proc
 
                 PlaceInVidSeg
                 mov si, offset RegisterNames
-                add di, 80*2 + 1*2
+                add di, LENGTH_SCREEN + 1*2
                 mov cx, 11                              ; output 11 registers for now...
 Reg:
                 push cx di
@@ -303,7 +305,7 @@ RegOutput:
                                                         ; I----------I----------I----------I----------I----------I- - - - -
                 pop di cx                               ;      ^                     ^          ^          ^
                                                         ;     SP                    BP       BP + 2     BP + 4
-                add di, 80*2                            ;
+                add di, LENGTH_SCREEN                   ;
                 loop Reg
 
                 pop bp
@@ -338,7 +340,7 @@ hex_convert:
                 add dx, 7                               ; if its not a number -> +7 for ASCII 'A' (need + '0')
 
 numero:
-                add dx, "0"
+                add dx, ASCII_NULL
                 mov [si], dl
                 inc si
                 shr bx, 4                               ; shift for next 4 bits
@@ -388,7 +390,7 @@ save_process_str:
                 loop save_process_str
 
                 pop di
-                add di, 80*2
+                add di, LENGTH_SCREEN
 
                 pop cx
                 loop save_process_row
@@ -429,7 +431,7 @@ reopen_process_str:
                 loop reopen_process_str
 
                 pop di
-                add di, 80*2
+                add di, LENGTH_SCREEN
 
                 pop cx
                 loop reopen_process_row
@@ -541,7 +543,7 @@ SkipSpaces      proc
 inf_loop:
                 mov al, [si]
 
-                cmp al, " "                             ; space
+                cmp al, ASCII_SPACE                     ; space
                 je skip
 
                 cmp al, ASCII_SL_N                      ; \n
