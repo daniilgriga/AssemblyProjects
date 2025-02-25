@@ -5,9 +5,19 @@ org 100h
 LessGo:         jmp Main
 
 
-; =================== CONSTANTS ===================
+;=================== CONSTANTS ===================
 NL              equ 0dh, 0ah
-; =================================================
+;=================================================
+
+Main:
+                call SignatureOutput
+
+                call GetPassword
+
+                call CheckPassword
+
+                mov ah, 4ch
+                int 21h
 
 ;===============================================================================================
 ; Welcome text output
@@ -49,11 +59,77 @@ reading:
                 jmp reading
 
 end_read:
-                ;
+;               mov dx, offset UserPassword
+;               mov ah, 09h
+;               int 21h
 
-                mov dx, offset UserPassword
+                ret
+                endp
+
+;===============================================================================================
+; Function to compare user and real password
+; Entry: none
+; Exit:  none
+; Destr: AX, BX, DX, SI, DI                                                                  !!!
+;===============================================================================================
+CheckPassword   proc
+
+                mov si, offset Password
+                call StrLen
+
+                mov si, offset UserPassword
+                mov di, offset Password
+
+check:
+                mov al, [si]
+                mov bl, [di]
+                cmp al, bl
+                jne wrong_password
+
+                inc si
+                inc di
+                loop check
+
+                mov al, [si]
+                mov bl, [di]
+                cmp al, bl
+                jne wrong_password
+
+                mov dx, offset CorrectMessage
+                jmp print_message
+
+wrong_password:
+                mov dx, offset WrongMessage
+
+print_message:
                 mov ah, 09h
                 int 21h
+
+                ret
+                endp
+
+;=============================================================================
+; Count length of string
+; Entry:        si = string offset
+; Exit:         cl = length of string
+; Destr: AL                                                                !!!
+;=============================================================================
+StrLen          proc
+
+                push bx
+                mov bx, si
+                xor cx, cx
+cycle:
+                mov al, [bx]
+                cmp al, "$"
+                je match
+
+                inc cl
+                inc bx
+                jmp cycle
+
+match:
+                pop bx
 
                 ret
                 endp
@@ -66,24 +142,12 @@ Signature       db  NL, "######################################################"
 
 AskPassword     db  "Enter the password:", "$"
 
+WrongMessage    db  "LOL, get out", "$"
+CorrectMessage  db  "Bazara net, u are admin here", "$"
+
+Password        db  "electron", "$"
+
 UserPassword    db  100  dup ("$")
-;===============================================================================================
-
-
-;===============================================================================================
-;============================================ MAIN =============================================
-;===============================================================================================
-
-Main:
-                call SignatureOutput
-
-                call GetPassword
-
-                mov ah, 4ch
-                int 21h
-
-;===============================================================================================
-;===============================================================================================
 ;===============================================================================================
 
 end             LessGo
