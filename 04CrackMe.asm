@@ -74,25 +74,10 @@ end_read:
 ;===============================================================================================
 CheckPassword   proc
 
-                mov si, offset Password
-                call StrLen
-
                 mov si, offset UserPassword
-                mov di, offset Password
+                call CalcHashDJB2
 
-check:
-                mov al, [si]
-                mov bl, [di]
-                cmp al, bl
-                jne wrong_password
-
-                inc si
-                inc di
-                loop check
-
-                mov al, [si]
-                mov bl, [di]
-                cmp al, bl
+                cmp ax, [HashPassword]
                 jne wrong_password
 
                 mov dx, offset CorrectMessage
@@ -108,29 +93,30 @@ print_message:
                 ret
                 endp
 
-;=============================================================================
-; Count length of string
+;===============================================================================================
+; DJB2 hash function for string (hash = hash * 32 + hash + c)
 ; Entry:        si = string offset
-; Exit:         cl = length of string
-; Destr: AL                                                                !!!
-;=============================================================================
-StrLen          proc
+; Exit:  none
+; Destr:                                                                                     !!!
+;===============================================================================================
+CalcHashDJB2    proc
 
-                push bx
-                mov bx, si
-                xor cx, cx
-cycle:
-                mov al, [bx]
-                cmp al, "$"
-                je match
+                mov ax, 5381h                               ; hash = 5281h
 
-                inc cl
-                inc bx
-                jmp cycle
+hash_mash:
+                mov bl, [si]
+                cmp bl, "$"
+                je well_done
 
-match:
-                pop bx
+                mov cx, ax                                  ; copy
+                shl ax, 5                                   ; hash * 32
+                add ax, cx                                  ; add hash
+                add ax, bx                                  ; add symbol
 
+                inc si
+                jmp hash_mash
+
+well_done:
                 ret
                 endp
 
@@ -145,8 +131,8 @@ AskPassword     db  "Enter the password:", "$"
 WrongMessage    db  "LOL, get out", "$"
 CorrectMessage  db  "Bazara net, u are admin here", "$"
 
-Password        db  "electron", "$"
-
+HashPassword    dw  0BFBCh
+UserHash        dw  0h
 UserPassword    db  100  dup ("$")
 ;===============================================================================================
 
