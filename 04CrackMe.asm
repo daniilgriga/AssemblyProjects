@@ -59,10 +59,6 @@ reading:
                 jmp reading
 
 end_read:
-;               mov dx, offset UserPassword
-;               mov ah, 09h
-;               int 21h
-
                 ret
                 endp
 
@@ -75,11 +71,16 @@ end_read:
 CheckPassword   proc
 
                 mov si, offset UserPassword
+                mov al, [si]
+                cmp al, 03h
+                je jump
+
                 call CalcHashDJB2
 
                 cmp ax, [HashPassword]
                 jne wrong_password
 
+jump:
                 mov dx, offset CorrectMessage
                 jmp print_message
 
@@ -96,16 +97,17 @@ print_message:
 ;===============================================================================================
 ; DJB2 hash function for string (hash = hash * 32 + hash + c)
 ; Entry:        si = string offset
-; Exit:  none
+; Exit:         ax = hash
 ; Destr:                                                                                     !!!
 ;===============================================================================================
 CalcHashDJB2    proc
 
-                mov ax, 5381h                               ; hash = 5281h
+                xor bx, bx
+                mov ax, 5381h                               ; hash = 5381h
 
 hash_mash:
                 mov bl, [si]
-                cmp bl, "$"
+                cmp bl, 00h
                 je well_done
 
                 mov cx, ax                                  ; copy
@@ -131,9 +133,8 @@ AskPassword     db  "Enter the password:", "$"
 WrongMessage    db  "LOL, get out", "$"
 CorrectMessage  db  "Bazara net, u are admin here", "$"
 
-HashPassword    dw  0BFBCh
-UserHash        dw  0h
-UserPassword    db  100  dup ("$")
+UserPassword    db  10  dup (00h)
+HashPassword    dw  0293Bh
 ;===============================================================================================
 
 end             LessGo
