@@ -52,7 +52,7 @@ GetPassword     proc
 
                 mov ah, 0Ah
                 lea dx, [bp - 22]
-                mov byte ptr [bp - 22], 20
+                mov byte ptr [bp - 22], 30
                 int 21h
 
                 ; I----------I----------I----------I----------I----------I- - - - -
@@ -94,47 +94,6 @@ print_message:
 
                 ret
                 endp
-
-;===============================================================================================
-; Function to compare user and real password
-; Entry: none
-; Exit:  none
-; Destr: AX, BX, DX, SI, DI                                                                  !!!
-;===============================================================================================
-;CheckPassword   proc
-;
-;                push bp
-;                mov bp, sp
-;
-;                lea si, [bp - 20]
-;                mov al, [si]
-;                cmp al, 03h
-;                je jump
-;
-;                mov sp, bp
-;                push [bp - 21]
-;                push bp
-;                call CalcHashDJB2
-;
-;                cmp ax, [HashPassword]
-;                jne wrong_password
-;
-;jump:
-;                mov dx, offset CorrectMessage
-;                jmp print_message
-;
-;wrong_password:
-;                mov dx, offset WrongMessage
-;
-;print_message:
-;                mov ah, 09h
-;                int 21h
-;
-;                mov sp, bp
-;                pop bp
-;
-;                ret
-;                endp
 
 ;===============================================================================================
 ; DJB2 hash function for string (hash = hash * 32 + hash + c)
