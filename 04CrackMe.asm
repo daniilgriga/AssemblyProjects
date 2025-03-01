@@ -14,7 +14,7 @@ Main:
 
                 call GetPassword
 
-                call CheckPassword
+                ;call CheckPassword
 
                 mov ah, 4ch
                 int 21h
@@ -42,39 +42,37 @@ SignatureOutput proc
 ;===============================================================================================
 GetPassword     proc
 
+                push bp
+                mov bp, sp
+                sub sp, 22
+
                 mov ah, 09h
                 mov dx, offset AskPassword
                 int 21h
 
-                mov si, offset UserPassword
-
-reading:
-                mov ah, 01h
+                mov ah, 0Ah
+                lea dx, [bp - 22]
+                mov byte ptr [bp - 22], 20
                 int 21h
-                cmp al, 0Dh
-                je end_read
 
-                mov [si], al
-                inc si
-                jmp reading
+                ; I----------I----------I----------I----------I----------I- - - - -
+                ; I          I          I          I          I          I
+                ; I   max    I   real   I   ....   I   ****   I   ****   I ret.addr
+                ; I          I          I          I          I          I
+                ; I----------I----------I----------I----------I----------I- - - - -
+                ;
 
-end_read:
-                ret
-                endp
+                mov ah, 09h
+                mov dx, offset NewLine
+                int 21h
 
-;===============================================================================================
-; Function to compare user and real password
-; Entry: none
-; Exit:  none
-; Destr: AX, BX, DX, SI, DI                                                                  !!!
-;===============================================================================================
-CheckPassword   proc
-
-                mov si, offset UserPassword
+                lea si, [bp - 20]
                 mov al, [si]
                 cmp al, 03h
                 je jump
 
+                push [bp - 21]
+                push bp
                 call CalcHashDJB2
 
                 cmp ax, [HashPassword]
@@ -91,8 +89,52 @@ print_message:
                 mov ah, 09h
                 int 21h
 
+                mov sp, bp
+                pop bp
+
                 ret
                 endp
+
+;===============================================================================================
+; Function to compare user and real password
+; Entry: none
+; Exit:  none
+; Destr: AX, BX, DX, SI, DI                                                                  !!!
+;===============================================================================================
+;CheckPassword   proc
+;
+;                push bp
+;                mov bp, sp
+;
+;                lea si, [bp - 20]
+;                mov al, [si]
+;                cmp al, 03h
+;                je jump
+;
+;                mov sp, bp
+;                push [bp - 21]
+;                push bp
+;                call CalcHashDJB2
+;
+;                cmp ax, [HashPassword]
+;                jne wrong_password
+;
+;jump:
+;                mov dx, offset CorrectMessage
+;                jmp print_message
+;
+;wrong_password:
+;                mov dx, offset WrongMessage
+;
+;print_message:
+;                mov ah, 09h
+;                int 21h
+;
+;                mov sp, bp
+;                pop bp
+;
+;                ret
+;                endp
 
 ;===============================================================================================
 ; DJB2 hash function for string (hash = hash * 32 + hash + c)
@@ -102,13 +144,20 @@ print_message:
 ;===============================================================================================
 CalcHashDJB2    proc
 
-                xor bx, bx
+                push bp
+                mov bp, sp
+
                 mov ax, 5381h                               ; hash = 5381h
 
+                mov bx, [bp + 4]
+                lea si, [bx - 20]
+                xor cx, cx
+                mov cl, [bp + 6]
+
+                xor bx, bx
 hash_mash:
+                push cx
                 mov bl, [si]
-                cmp bl, 00h
-                je well_done
 
                 mov cx, ax                                  ; copy
                 shl ax, 5                                   ; hash * 32
@@ -116,10 +165,13 @@ hash_mash:
                 add ax, bx                                  ; add symbol
 
                 inc si
-                jmp hash_mash
+                pop cx
+                loop hash_mash
 
-well_done:
-                ret
+                mov sp,bp
+                pop bp
+
+                ret 4
                 endp
 
 ;========================================== VARIABLES ==========================================
@@ -129,6 +181,8 @@ Signature       db  NL, "######################################################"
                 db      "######################################################", NL, NL, "$"
 
 AskPassword     db  "Enter the password:", "$"
+
+NewLine         db  NL, "$"
 
 WrongMessage    db  "LOL, get out", "$"
 CorrectMessage  db  "Bazara net, u are admin here", "$"
