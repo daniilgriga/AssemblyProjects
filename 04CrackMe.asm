@@ -5,19 +5,23 @@ org 100h
 LessGo:         jmp Main
 
 
-;=================== CONSTANTS ===================
+; =================== CONSTANTS ===================
 NL              equ 0dh, 0ah
-;=================================================
+; =================================================
+
+; ===================== MACROS ====================
+EOP             macro
+                mov ah, 4ch
+                int 21h
+                endm
+; =================================================
 
 Main:
                 call SignatureOutput
 
                 call GetPassword
 
-                ;call CheckPassword
-
-                mov ah, 4ch
-                int 21h
+                EOP
 
 ;===============================================================================================
 ; Welcome text output
@@ -40,40 +44,33 @@ SignatureOutput proc
 ; Exit:  none
 ; Destr: AX, DX, SI                                                                          !!!
 ;===============================================================================================
-GetPassword     proc
-
-                push bp
-                mov bp, sp
-                sub sp, 22
-
-                mov ah, 09h
+GetPassword     proc                                    ;    bp - 22     bp - 20
+                                                        ; I-----------I-----------I-----------I-----------I----------I- - - - -
+                push bp                                 ; I           I           I           I           I          I
+                mov bp, sp                              ; I MAX | LEN I     -     I    ...    I     -     I    bp    I ret.addr
+                sub sp, 22                              ; I           I           I           I           I          I
+                                                        ; I-----------I-----------I---------- I-----------I----------I- - - - -
+                mov ah, 09h                             ;      ^sp <=============== sp - 22 ================== ^sp
                 mov dx, offset AskPassword
-                int 21h
-
-                mov ah, 0Ah
-                lea dx, [bp - 22]
-                mov byte ptr [bp - 22], 30
-                int 21h
-
-                ; I----------I----------I----------I----------I----------I- - - - -
-                ; I          I          I          I          I          I
-                ; I   max    I   real   I   ....   I   ****   I   ****   I ret.addr
-                ; I          I          I          I          I          I
-                ; I----------I----------I----------I----------I----------I- - - - -
-                ;
-
+                int 21h                                 ;    bp - 22     bp - 20
+                                                        ; I-----------I-----------I-----------I-----------I----------I- - - - -
+                mov ah, 0Ah                             ; I           I           I           I           I          I
+                lea dx, [bp - 22]                       ; I  30 | LEN I     -     I    ...    I     -     I    bp    I ret.addr
+                mov byte ptr [bp - 22], 30              ; I           I           I           I           I          I
+                int 21h                                 ; I-----------I-----------I---------- I-----------I----------I- - - - -
+                                                        ;      ^sp <=============== sp - 22 ================== ^sp
                 mov ah, 09h
                 mov dx, offset NewLine
                 int 21h
-
-                lea si, [bp - 20]
-                mov al, [si]
-                cmp al, 03h
-                je jump
-
-                push [bp - 21]
-                push bp
-                call CalcHashDJB2
+                                                        ;                            bp - 21 = real length of user passweor
+                lea si, [bp - 20]                       ;                            bp - 22     bp - 20 = addr of user password
+                mov al, [si]                            ; I----------I-----------I-----------I-----------I----------I- - - - -
+                cmp al, 03h                             ; I          I           I           I           I          I
+                je jump                                 ; I    bp    I    LEN    I  30 | LEN I    ...    I    bp    I ret.addr
+                                                        ; I          I           I           I           I          I
+                push [bp - 21]                          ; I----------I-----------I-----------I---------- I----------I- - - - -
+                push bp                                 ;      ^sp <=push= ^sp <=push= ^sp <==== sp - 22 ==== ^sp
+                call CalcHashDJB2                       ;      ^param     ^param    of CalcHashDJB2
 
                 cmp ax, [HashPassword]
                 jne wrong_password
@@ -106,22 +103,23 @@ CalcHashDJB2    proc
                 push bp
                 mov bp, sp
 
-                mov ax, 5381h                               ; hash = 5381h
+                mov ax, 5381h                           ; hash = 5381h
+                                                        ;      bp                  bp + 4     bp + 6                  bx - 20
+                mov bx, [bp + 4]                        ; I----------I----------I----------I-----------I-----------I-----------I- - - - -
+                lea si, [bx - 20]                       ; I          I          I          I           I           I           I
+                xor cx, cx                              ; I    bp    I ret.addr I    bp    I    LEN    I  30 | LEN I    ...    I
+                mov cl, [bp + 6]                        ; I          I          I          I           I           I           I
+                                                        ; I----------I----------I----------I-----------I-----------I-----------I- - - - -
+                xor bx, bx                              ;     ^sp <=push= ^sp <=call= ^sp
 
-                mov bx, [bp + 4]
-                lea si, [bx - 20]
-                xor cx, cx
-                mov cl, [bp + 6]
-
-                xor bx, bx
 hash_mash:
                 push cx
                 mov bl, [si]
 
-                mov cx, ax                                  ; copy
-                shl ax, 5                                   ; hash * 32
-                add ax, cx                                  ; add hash
-                add ax, bx                                  ; add symbol
+                mov cx, ax                              ; copy
+                shl ax, 5                               ; hash * 32
+                add ax, cx                              ; add hash
+                add ax, bx                              ; add symbol
 
                 inc si
                 pop cx
