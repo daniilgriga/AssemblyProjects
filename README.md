@@ -12,13 +12,12 @@ The first program is "**Hello, world!**", but a little differently...
 
 The program draws a frame and text in it in video memory.
 The command line takes **5 arguments:** 
-1. frame size in X coordinate
-2. frame size in Y coordinate
-3. color
-4. style number*
-5. line that should be in the frame
+1. Frame size in X coordinate
+2. Frame size in Y coordinate
+3. Color
+4. Style number*
+5. Line that should be in the frame
 
-   
 Program call example:
 ```
 ~> 02Boxes.com 50 10 95 2 ""be brave#"
@@ -45,9 +44,9 @@ In this program, I intercept hardware interrupts such as DOS 09h and DOS 08h and
 
 **RESULT:** The program has this functionality:
 
-- button 'F' - display the frame with registers on the screen (stationary values of registers).
-- button 'T' - start timer, i.e. start updating of register values.
-- button 'D' - deleting the frame from the screen.
+- Button 'F' - display the frame with registers on the screen (stationary values of registers).
+- Button 'T' - start timer, i.e. start updating of register values.
+- Button 'D' - deleting the frame from the screen.
 
 ![work example](images/example.gif)
 
