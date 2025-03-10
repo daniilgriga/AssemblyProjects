@@ -23,7 +23,7 @@ Program call example:
 ~> 02Boxes.com 50 10 95 2 ""be brave#"
 ```
 
-Result:
+**RESULT:**
 
 ![result of 1-st example](/images/example-1.png "be brave, brother")
 
@@ -32,7 +32,7 @@ Result:
 ~> 02Boxes.com 60 13 97 0 "(-)( )(-)" "stay hard#"
 ```
 
-Result
+**RESULT:**
 
 ![result of 1-st example](/images/example-2.png "stay hard, my man")
 
