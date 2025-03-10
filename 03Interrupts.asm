@@ -9,6 +9,7 @@ LessGo:         jmp Main
 LENGTH_SCREEN   equ 80*2
 
 VIDEOSEG        equ 0b800h
+
 START_Y         equ 1*LENGTH_SCREEN
 START_X         equ LENGTH_SCREEN - 10*2
 
@@ -37,9 +38,15 @@ PlaceInVidSeg 	macro
                 mov di, START_Y + START_X
 	            endm
 
-InstallDS       macro
+PlaceInVidSeg 	macro
+		        mov bx, VIDEOSEG
+                mov es, bx
+                mov di, START_Y + START_X
+	            endm
+
+GetDS       macro
                 mov bx, cs                              ;
-                mov ds, bx                              ; install DS on our code segment
+                mov ds, bx                              ; get DS on our code segment
                 endm
 ; =================================================
 
@@ -55,7 +62,7 @@ MyInt08h        proc
 
                 push ss es ds sp bp di si dx cx bx ax
 
-                InstallDS
+                GetDS
 
                 cmp [OutputStatus], ACTIVE
                 jne skip_timer
@@ -65,6 +72,7 @@ MyInt08h        proc
 
                 call ReopenScreen
                 call SaveScreen
+
                 mov ah, [COLOR_FROM_CMD]
                 mov si, [SI_FROM_CMD]
                 call BoxBuild
@@ -94,7 +102,7 @@ MyInt09h        proc
 
                 push ss es ds sp bp di si dx cx bx ax
 
-                InstallDS
+                GetDS
 
                 xor ax, ax
 
@@ -159,7 +167,8 @@ skip_that_sh:
 end_int:
                 pop ax bx cx dx si di bp sp ds es ss
 
-                db  0eah                                ; far jmp on standard 09h interrupt
+                db  0eah
+                                               ; far jmp on standard 09h interrupt
 Std09off        dw  0
 Std09seg        dw  0
 
@@ -179,7 +188,9 @@ TimerStatus     db  0
 ;===============================================================================================
 ;===============================================================================================
 ; Draws box
-; Entry:        di = location rn
+; Entry:        ah = color
+;               si = offset style
+;               di = location rn
 ;
 ; Exit:  none
 ; Destr: DI, SI, BX, CX                                                                      !!!
@@ -368,7 +379,7 @@ turn_up_loop:
 ;===============================================================================================
 SaveScreen      proc
 
-                InstallDS
+                GetDS
                 PlaceInVidSeg
 
                 mov si, offset ScreenBuffer             ; temporary buffer for save screen
@@ -408,7 +419,7 @@ save_process_str:
 ;===============================================================================================
 ReopenScreen    proc
 
-                InstallDS
+                GetDS
                 PlaceInVidSeg
 
                 mov si, offset ScreenBuffer
@@ -451,6 +462,7 @@ FrameStyleC     db  "         "
 
 RegValBuffer    db 5    dup (0)
 ScreenBuffer    dw 150  dup (0)
+BackgrBuffer    dw 150  dup (0)
 ;===============================================================================================
 
 SavePoint:

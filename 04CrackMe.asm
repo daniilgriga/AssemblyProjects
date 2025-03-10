@@ -141,10 +141,9 @@ AskPassword     db  "Enter the password:", "$"
 
 NewLine         db  NL, "$"
 
-WrongMessage    db  "LOL, get out", "$"
-CorrectMessage  db  "Bazara net, u are admin here", "$"
+WrongMessage    db  "LOL, get out", NL, "$"
+CorrectMessage  db  "Bazara net, u are admin here", NL, "$"
 
-UserPassword    db  10  dup (00h)
 HashPassword    dw  0293Bh
 ;===============================================================================================
 
