@@ -54,6 +54,6 @@ In this program, I intercept hardware interrupts DOS 09h and DOS 08h and set my 
 
 ## 04 CrackMe
 
-СrackMe-program for my course friend [Egor](https://github.com/4Locker4) with several vulnerabilities - final assignment of assembly course in DOS.
+СrackMe-program for my classmate [Egor](https://github.com/4Locker4) with several vulnerabilities - final assignment of assembly course in DOS.
 
 Egor also wrote me the similar program. I'm cracking it here: [My Patcher](https://github.com/daniilgriga/Patcher)
